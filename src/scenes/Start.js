@@ -24,6 +24,14 @@ export class Start extends Phaser.Scene {
         
         // Load effects
         this.load.spritesheet('blue-explosion', 'assets/effects/blue-explosion.png', { frameWidth: 32, frameHeight: 32 });
+        
+        // Load sound effects
+        this.load.audio('laser', 'assets/sfx/laser-1.wav');
+        this.load.audio('hurt', 'assets/sfx/hurt-1.wav');
+        this.load.audio('male-hurt', 'assets/sfx/male-hurt-1.wav');
+        
+        // Load background music
+        this.load.audio('background-music', 'assets/music/twilight-of-the-dead.mp3');
     }
 
     create() {
@@ -36,6 +44,7 @@ export class Start extends Phaser.Scene {
         this.cameras.main.setZoom(1);
         this.player = this.physics.add.sprite(640, 360, 'jango');
         this.player.setCollideWorldBounds(true);
+        this.player.setScale(1);
         
         // Adjust player collision bounds to 50% of sprite size
         const playerWidth = this.player.width * 0.75;
@@ -97,6 +106,18 @@ export class Start extends Phaser.Scene {
         // Add space key for continuous input
         this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
 
+        // Create sound effects
+        this.laserSound = this.sound.add('laser', { volume: 0.05 });
+        this.hurtSound = this.sound.add('hurt', { volume: 0.75 });
+        this.maleHurtSound = this.sound.add('male-hurt', { volume: 0.5 });
+
+        // Add background music
+        this.backgroundMusic = this.sound.add('background-music', { 
+            volume: 0.3, 
+            loop: true 
+        });
+        this.backgroundMusic.play();
+
         // Start spawning imps
         this.spawnTimer = this.time.addEvent({
             delay: this.currentSpawnDelay,
@@ -143,6 +164,9 @@ export class Start extends Phaser.Scene {
 
     onPlayerHitImp(player, imp) {
         if (this.gameOver) return;
+
+        // Play male hurt sound
+        this.maleHurtSound.play();
 
         // Damage player
         this.health = Math.max(0, this.health - 25);
@@ -255,6 +279,7 @@ export class Start extends Phaser.Scene {
         const imp = this.imps.create(x, y, 'imp_red_walk');
         imp.play('imp_walk');
         imp.setCollideWorldBounds(true);
+        imp.setScale(2);
         
         // Adjust imp collision bounds to 50% of sprite size
         const impWidth = imp.width * 0.5;
@@ -287,6 +312,9 @@ export class Start extends Phaser.Scene {
 
         this.lastShotTime = currentTime;
 
+        // Play laser sound
+        this.laserSound.play();
+
         const bullet = this.bullets.create(this.player.x, this.player.y, 'blue-explosion');
         bullet.setFrame(0);  // Use first frame as bullet
         
@@ -309,16 +337,19 @@ export class Start extends Phaser.Scene {
 
     calculateSpawnDelay() {
         // Gradually reduce delay from 1000ms to 200ms based on score
-        // At score 0: 1000ms, at score 20+: 200ms
+        // At score 0: 1000ms, at score 100+: 200ms
         const minDelay = 200;
         const maxDelay = 1000;
-        const scoreThreshold = 20; // Score needed to reach minimum delay
+        const scoreThreshold = 100; // Score needed to reach minimum delay
         
         const progress = Math.min(this.score / scoreThreshold, 1);
         return Math.max(minDelay, maxDelay - (maxDelay - minDelay) * progress);
     }
 
     onBulletHitImp(bullet, imp) {
+        // Play hurt sound
+        this.hurtSound.play();
+        
         const explosion = this.add.sprite(imp.x, imp.y, 'blue-explosion');
         explosion.play('explosion');
         explosion.once('animationcomplete', () => {
@@ -337,8 +368,24 @@ export class Start extends Phaser.Scene {
         this.spawnTimer.delay = this.currentSpawnDelay;
     }
 
+    cleanupBullets() {
+        this.bullets.getChildren().forEach(bullet => {
+            // Check if bullet is far outside the world bounds
+            const buffer = 100; // Extra buffer to ensure bullets are truly out of range
+            if (bullet.x < -buffer || 
+                bullet.x > this.physics.world.bounds.width + buffer ||
+                bullet.y < -buffer || 
+                bullet.y > this.physics.world.bounds.height + buffer) {
+                bullet.destroy();
+            }
+        });
+    }
+
     update() {
         if (this.gameOver) return;
+        
+        // Clean up out-of-bounds bullets
+        this.cleanupBullets();
         
         // Continuous shooting while space is held
         if (this.spaceKey.isDown) {
