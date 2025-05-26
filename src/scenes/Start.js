@@ -9,6 +9,9 @@ export class Start extends Phaser.Scene {
         this.health = 100; // Player health
         this.maxHealth = 100;
         this.gameOver = false;
+        // Boomerang properties
+        this.lastBoomerangTime = 0;
+        this.boomerangCooldown = 5000; // 5 seconds
     }
 
     preload() {
@@ -24,6 +27,9 @@ export class Start extends Phaser.Scene {
         
         // Load effects
         this.load.spritesheet('blue-explosion', 'assets/effects/blue-explosion.png', { frameWidth: 32, frameHeight: 32 });
+        
+        // Load boomerang
+        this.load.image('boomerang', 'assets/super/boomerang.png');
         
         // Load sound effects
         this.load.audio('laser', 'assets/sfx/laser-1.wav');
@@ -70,6 +76,9 @@ export class Start extends Phaser.Scene {
         // Add bullet group
         this.bullets = this.physics.add.group();
         
+        // Add boomerang group
+        this.boomerangs = this.physics.add.group();
+        
         // Create imp group (moved before collision setup)
         this.imps = this.physics.add.group();
         
@@ -91,6 +100,9 @@ export class Start extends Phaser.Scene {
 
         // Setup bullet-imp collision (moved after groups are created)
         this.physics.add.overlap(this.bullets, this.imps, this.onBulletHitImp, null, this);
+
+        // Setup boomerang-imp collision
+        this.physics.add.overlap(this.boomerangs, this.imps, this.onBoomerangHitImp, null, this);
 
         // Setup player-imp collision
         this.physics.add.overlap(this.player, this.imps, this.onPlayerHitImp, null, this);
@@ -335,6 +347,76 @@ export class Start extends Phaser.Scene {
         bullet.setVelocity(velocity.x, velocity.y);
     }
 
+    shootBoomerang() {
+        if (this.gameOver) return;
+        
+        const currentTime = this.time.now;
+        if (currentTime - this.lastBoomerangTime < this.boomerangCooldown) {
+            return;
+        }
+
+        this.lastBoomerangTime = currentTime;
+
+        const boomerang = this.boomerangs.create(this.player.x, this.player.y, 'boomerang');
+        boomerang.setScale(4);
+        
+        // Random direction
+        const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+        
+        // Store boomerang properties
+        boomerang.startX = this.player.x;
+        boomerang.startY = this.player.y;
+        boomerang.angle = angle;
+        boomerang.travelDistance = 300;
+        boomerang.distanceTraveled = 0;
+        boomerang.returning = false;
+        boomerang.speed = 500;
+        
+        // Set initial velocity
+        const velocity = new Phaser.Math.Vector2();
+        velocity.setToPolar(angle, boomerang.speed);
+        boomerang.setVelocity(velocity.x, velocity.y);
+    }
+
+    updateBoomerangs() {
+        this.boomerangs.getChildren().forEach(boomerang => {
+            // Rotate the boomerang
+            boomerang.rotation += 0.3;
+            
+            // Calculate distance from start position
+            const currentDistance = Phaser.Math.Distance.Between(
+                boomerang.startX, boomerang.startY, 
+                boomerang.x, boomerang.y
+            );
+            
+            if (!boomerang.returning && currentDistance >= boomerang.travelDistance) {
+                // Start returning
+                boomerang.returning = true;
+            }
+            
+            if (boomerang.returning) {
+                // Move towards player
+                const angle = Phaser.Math.Angle.Between(
+                    boomerang.x, boomerang.y, 
+                    this.player.x, this.player.y
+                );
+                const velocity = new Phaser.Math.Vector2();
+                velocity.setToPolar(angle, boomerang.speed);
+                boomerang.setVelocity(velocity.x, velocity.y);
+                
+                // Check if boomerang reached player
+                const distanceToPlayer = Phaser.Math.Distance.Between(
+                    boomerang.x, boomerang.y, 
+                    this.player.x, this.player.y
+                );
+                
+                if (distanceToPlayer < 30) {
+                    boomerang.destroy();
+                }
+            }
+        });
+    }
+
     calculateSpawnDelay() {
         // Gradually reduce delay from 1000ms to 200ms based on score
         // At score 0: 1000ms, at score 100+: 200ms
@@ -368,6 +450,27 @@ export class Start extends Phaser.Scene {
         this.spawnTimer.delay = this.currentSpawnDelay;
     }
 
+    onBoomerangHitImp(boomerang, imp) {
+        // Play hurt sound
+        this.hurtSound.play();
+        
+        const explosion = this.add.sprite(imp.x, imp.y, 'blue-explosion');
+        explosion.play('explosion');
+        explosion.once('animationcomplete', () => {
+            explosion.destroy();
+        });
+        
+        imp.destroy();
+        
+        // Update score
+        this.score += 1;
+        this.scoreText.setText('Score: ' + this.score);
+        
+        // Update spawn delay based on new score
+        this.currentSpawnDelay = this.calculateSpawnDelay();
+        this.spawnTimer.delay = this.currentSpawnDelay;
+    }
+
     cleanupBullets() {
         this.bullets.getChildren().forEach(bullet => {
             // Check if bullet is far outside the world bounds
@@ -386,6 +489,12 @@ export class Start extends Phaser.Scene {
         
         // Clean up out-of-bounds bullets
         this.cleanupBullets();
+        
+        // Update boomerangs
+        this.updateBoomerangs();
+        
+        // Auto-shoot boomerang every 5 seconds
+        this.shootBoomerang();
         
         // Continuous shooting while space is held
         if (this.spaceKey.isDown) {
