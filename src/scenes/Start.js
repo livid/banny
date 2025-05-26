@@ -5,6 +5,10 @@ export class Start extends Phaser.Scene {
         this.score = 0;
         this.lastShotTime = 0;
         this.fireRate = 500; // Milliseconds between shots
+        this.currentSpawnDelay = 1000; // Start with 1 second delay
+        this.health = 100; // Player health
+        this.maxHealth = 100;
+        this.gameOver = false;
     }
 
     preload() {
@@ -32,6 +36,12 @@ export class Start extends Phaser.Scene {
         this.cameras.main.setZoom(1);
         this.player = this.physics.add.sprite(640, 360, 'jango');
         this.player.setCollideWorldBounds(true);
+        
+        // Adjust player collision bounds to 50% of sprite size
+        const playerWidth = this.player.width * 0.75;
+        const playerHeight = this.player.height * 0.99;
+        this.player.body.setSize(playerWidth, playerHeight);
+        
         this.cameras.main.startFollow(this.player, true, 0.05, 0.05);
 
         // Add score display
@@ -42,6 +52,9 @@ export class Start extends Phaser.Scene {
             strokeThickness: 2
         });
         this.scoreText.setScrollFactor(0); // Keep UI fixed to camera
+
+        // Add health bar
+        this.createHealthBar();
 
         this.cursors = this.input.keyboard.createCursorKeys();
 
@@ -70,13 +83,134 @@ export class Start extends Phaser.Scene {
         // Setup bullet-imp collision (moved after groups are created)
         this.physics.add.overlap(this.bullets, this.imps, this.onBulletHitImp, null, this);
 
+        // Setup player-imp collision
+        this.physics.add.overlap(this.player, this.imps, this.onPlayerHitImp, null, this);
+
         // Setup input handlers
-        this.input.keyboard.on('keydown-SPACE', () => this.shootBullet());
+        this.input.keyboard.on('keydown-ENTER', () => {
+            if (this.gameOver) {
+                this.restartGame();
+            }
+        });
         this.input.on('pointerdown', () => this.shootBullet());
 
+        // Add space key for continuous input
+        this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+
         // Start spawning imps
-        this.time.addEvent({
-            delay: 2000,  // Spawn every 2 seconds
+        this.spawnTimer = this.time.addEvent({
+            delay: this.currentSpawnDelay,
+            callback: this.spawnImp,
+            callbackScope: this,
+            loop: true
+        });
+    }
+
+    createHealthBar() {
+        const barWidth = 200;
+        const barHeight = 20;
+        const x = this.cameras.main.width - barWidth - 16;
+        const y = 16;
+
+        // Health bar background (black border)
+        this.healthBarBg = this.add.rectangle(x, y, barWidth + 4, barHeight + 4, 0x000000);
+        this.healthBarBg.setOrigin(0, 0);
+        this.healthBarBg.setScrollFactor(0);
+        this.healthBarBg.setDepth(1000);
+
+        // Health bar fill (yellow)
+        this.healthBar = this.add.rectangle(x + 2, y + 2, barWidth, barHeight, 0xffff00);
+        this.healthBar.setOrigin(0, 0);
+        this.healthBar.setScrollFactor(0);
+        this.healthBar.setDepth(1001);
+
+        // Health text
+        this.healthText = this.add.text(x + barWidth/2, y + barHeight/2, '100/100', {
+            fontSize: '14px',
+            fill: '#000000'
+        });
+        this.healthText.setOrigin(0.5, 0.5);
+        this.healthText.setScrollFactor(0);
+        this.healthText.setDepth(1002);
+    }
+
+    updateHealthBar() {
+        const healthPercent = this.health / this.maxHealth;
+        const barWidth = 200;
+        this.healthBar.width = barWidth * healthPercent;
+        this.healthText.setText(`${this.health}/${this.maxHealth}`);
+    }
+
+    onPlayerHitImp(player, imp) {
+        if (this.gameOver) return;
+
+        // Damage player
+        this.health = Math.max(0, this.health - 25);
+        this.updateHealthBar();
+
+        // Remove the imp that hit the player
+        imp.destroy();
+
+        // Check for game over
+        if (this.health <= 0) {
+            this.triggerGameOver();
+        }
+    }
+
+    triggerGameOver() {
+        this.gameOver = true;
+        
+        // Stop spawning imps
+        this.spawnTimer.destroy();
+        
+        // Stop player movement
+        this.player.setVelocity(0, 0);
+        
+        // Stop all imps
+        this.imps.getChildren().forEach(imp => {
+            imp.setVelocity(0, 0);
+        });
+
+        // Show game over text
+        this.gameOverText = this.add.text(this.cameras.main.centerX, this.cameras.main.centerY, 'GAME OVER\nPress ENTER to restart', {
+            fontSize: '48px',
+            fill: '#ff0000',
+            stroke: '#000000',
+            strokeThickness: 3,
+            align: 'center'
+        });
+        this.gameOverText.setOrigin(0.5, 0.5);
+        this.gameOverText.setScrollFactor(0);
+    }
+
+    restartGame() {
+        // Reset game state
+        this.score = 0;
+        this.health = this.maxHealth;
+        this.gameOver = false;
+        this.currentSpawnDelay = 1000;
+        this.lastShotTime = 0;
+
+        // Update UI
+        this.scoreText.setText('Score: 0');
+        this.updateHealthBar();
+
+        // Remove game over text
+        if (this.gameOverText) {
+            this.gameOverText.destroy();
+        }
+
+        // Clear all imps and bullets
+        this.imps.clear(true, true);
+        this.bullets.clear(true, true);
+
+        // Reset player position
+        this.player.setPosition(640, 360);
+        this.player.setVelocity(0, 0);
+
+        // Restart imp spawning
+        this.spawnTimer = this.time.addEvent({
+            delay: this.currentSpawnDelay,
             callback: this.spawnImp,
             callbackScope: this,
             loop: true
@@ -84,6 +218,8 @@ export class Start extends Phaser.Scene {
     }
 
     spawnImp() {
+        if (this.gameOver) return;
+        
         // Get random position at the edge of the visible area
         const edge = Phaser.Math.Between(0, 3);
         let x, y;
@@ -119,6 +255,11 @@ export class Start extends Phaser.Scene {
         const imp = this.imps.create(x, y, 'imp_red_walk');
         imp.play('imp_walk');
         imp.setCollideWorldBounds(true);
+        
+        // Adjust imp collision bounds to 50% of sprite size
+        const impWidth = imp.width * 0.5;
+        const impHeight = imp.height * 0.5;
+        imp.body.setSize(impWidth, impHeight);
     }
 
     findNearestImp() {
@@ -137,6 +278,8 @@ export class Start extends Phaser.Scene {
     }
 
     shootBullet() {
+        if (this.gameOver) return;
+        
         const currentTime = this.time.now;
         if (currentTime - this.lastShotTime < this.fireRate) {
             return; // Still in cooldown
@@ -164,6 +307,17 @@ export class Start extends Phaser.Scene {
         bullet.setVelocity(velocity.x, velocity.y);
     }
 
+    calculateSpawnDelay() {
+        // Gradually reduce delay from 1000ms to 200ms based on score
+        // At score 0: 1000ms, at score 20+: 200ms
+        const minDelay = 200;
+        const maxDelay = 1000;
+        const scoreThreshold = 20; // Score needed to reach minimum delay
+        
+        const progress = Math.min(this.score / scoreThreshold, 1);
+        return Math.max(minDelay, maxDelay - (maxDelay - minDelay) * progress);
+    }
+
     onBulletHitImp(bullet, imp) {
         const explosion = this.add.sprite(imp.x, imp.y, 'blue-explosion');
         explosion.play('explosion');
@@ -177,14 +331,27 @@ export class Start extends Phaser.Scene {
         // Update score
         this.score += 1;
         this.scoreText.setText('Score: ' + this.score);
+        
+        // Update spawn delay based on new score
+        this.currentSpawnDelay = this.calculateSpawnDelay();
+        this.spawnTimer.delay = this.currentSpawnDelay;
     }
 
     update() {
+        if (this.gameOver) return;
+        
+        // Continuous shooting while space is held
+        if (this.spaceKey.isDown) {
+            this.shootBullet();
+        }
+        
         // Player movement with W, A, S, D keys
         if (this.cursors.left.isDown || this.input.keyboard.checkDown(this.input.keyboard.addKey('A'))) {
             this.player.setVelocityX(-200);
+            this.player.flipX = true; // Flip when moving left
         } else if (this.cursors.right.isDown || this.input.keyboard.checkDown(this.input.keyboard.addKey('D'))) {
             this.player.setVelocityX(200);
+            this.player.flipX = false; // Don't flip when moving right
         } else {
             this.player.setVelocityX(0);
         }
