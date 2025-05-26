@@ -12,6 +12,9 @@ export class Start extends Phaser.Scene {
         // Boomerang properties
         this.lastBoomerangTime = 0;
         this.boomerangCooldown = 5000; // 5 seconds
+        // Big Boom properties
+        this.lastBigBoomTime = 0;
+        this.bigBoomCooldown = 5000; // 5 seconds
     }
 
     preload() {
@@ -30,6 +33,9 @@ export class Start extends Phaser.Scene {
         
         // Load boomerang
         this.load.image('boomerang', 'assets/super/boomerang.png');
+
+        // Load big boom
+        this.load.spritesheet('big-boom', 'assets/super/white-boom.png', { frameWidth: 32, frameHeight: 32 });
         
         // Load sound effects
         this.load.audio('laser', 'assets/sfx/laser-1.wav');
@@ -79,6 +85,9 @@ export class Start extends Phaser.Scene {
         // Add boomerang group
         this.boomerangs = this.physics.add.group();
         
+        // Add Big Boom group
+        this.bigBooms = this.physics.add.group();
+        
         // Create imp group (moved before collision setup)
         this.imps = this.physics.add.group();
         
@@ -87,6 +96,14 @@ export class Start extends Phaser.Scene {
             key: 'explosion',
             frames: this.anims.generateFrameNumbers('blue-explosion', { start: 0, end: 3 }),
             frameRate: 10,
+            repeat: 0
+        });
+
+        // Add Big Boom animation
+        this.anims.create({
+            key: 'big-boom',
+            frames: this.anims.generateFrameNumbers('big-boom', { start: 0, end: 15 }),
+            frameRate: 24,
             repeat: 0
         });
 
@@ -103,6 +120,9 @@ export class Start extends Phaser.Scene {
 
         // Setup boomerang-imp collision
         this.physics.add.overlap(this.boomerangs, this.imps, this.onBoomerangHitImp, null, this);
+
+        // Setup Big Boom-imp collision
+        this.physics.add.overlap(this.bigBooms, this.imps, this.onBigBoomHitImp, null, this);
 
         // Setup player-imp collision
         this.physics.add.overlap(this.player, this.imps, this.onPlayerHitImp, null, this);
@@ -226,6 +246,8 @@ export class Start extends Phaser.Scene {
         this.gameOver = false;
         this.currentSpawnDelay = 1000;
         this.lastShotTime = 0;
+        this.lastBoomerangTime = 0;
+        this.lastBigBoomTime = 0;
 
         // Update UI
         this.scoreText.setText('Score: 0');
@@ -239,6 +261,8 @@ export class Start extends Phaser.Scene {
         // Clear all imps and bullets
         this.imps.clear(true, true);
         this.bullets.clear(true, true);
+        this.boomerangs.clear(true, true);
+        this.bigBooms.clear(true, true);
 
         // Reset player position
         this.player.setPosition(640, 360);
@@ -378,6 +402,41 @@ export class Start extends Phaser.Scene {
         boomerang.setVelocity(velocity.x, velocity.y);
     }
 
+    shootBigBoom() {
+        if (this.gameOver) return;
+        
+        const currentTime = this.time.now;
+        if (currentTime - this.lastBigBoomTime < this.bigBoomCooldown) {
+            return;
+        }
+
+        this.lastBigBoomTime = currentTime;
+
+        // Random angle around player
+        const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+        const distance = 300;
+        
+        // Calculate position 200 pixels from player
+        const x = this.player.x + Math.cos(angle) * distance;
+        const y = this.player.y + Math.sin(angle) * distance;
+
+        const bigBoom = this.bigBooms.create(x, y, 'big-boom');
+        bigBoom.setScale(8);
+        
+        // Set random rotation before playing animation
+        bigBoom.setRotation(Phaser.Math.FloatBetween(0, Math.PI * 2));
+        
+        bigBoom.play('big-boom');
+        
+        // Set up collision radius (larger than visual for better gameplay)
+        bigBoom.body.setSize(32, 32); // 32 * 4 scale = 128 base size
+        
+        // Remove after animation completes
+        bigBoom.once('animationcomplete', () => {
+            bigBoom.destroy();
+        });
+    }
+
     updateBoomerangs() {
         this.boomerangs.getChildren().forEach(boomerang => {
             // Rotate the boomerang
@@ -471,6 +530,27 @@ export class Start extends Phaser.Scene {
         this.spawnTimer.delay = this.currentSpawnDelay;
     }
 
+    onBigBoomHitImp(bigBoom, imp) {
+        // Play hurt sound
+        this.hurtSound.play();
+        
+        const explosion = this.add.sprite(imp.x, imp.y, 'blue-explosion');
+        explosion.play('explosion');
+        explosion.once('animationcomplete', () => {
+            explosion.destroy();
+        });
+        
+        imp.destroy();
+        
+        // Update score
+        this.score += 1;
+        this.scoreText.setText('Score: ' + this.score);
+        
+        // Update spawn delay based on new score
+        this.currentSpawnDelay = this.calculateSpawnDelay();
+        this.spawnTimer.delay = this.currentSpawnDelay;
+    }
+
     cleanupBullets() {
         this.bullets.getChildren().forEach(bullet => {
             // Check if bullet is far outside the world bounds
@@ -495,6 +575,9 @@ export class Start extends Phaser.Scene {
         
         // Auto-shoot boomerang every 5 seconds
         this.shootBoomerang();
+        
+        // Auto-shoot Big Boom every 5 seconds
+        this.shootBigBoom();
         
         // Continuous shooting while space is held
         if (this.spaceKey.isDown) {
