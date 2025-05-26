@@ -2,19 +2,24 @@ export class Start extends Phaser.Scene {
 
     constructor() {
         super('Start');
+        this.score = 0;
+        this.lastShotTime = 0;
+        this.fireRate = 500; // Milliseconds between shots
     }
 
     preload() {
+        // Load desert map
         this.load.image('desert-tiles', 'assets/Desert Tileset.png');
         this.load.tilemapTiledJSON('desert-map', 'assets/Desert.json');
+        
+        // Load player
         this.load.image('jango', 'assets/jango.png');
+
+        // Load monster
         this.load.spritesheet('imp_red_walk', 'assets/monsters/imp_red_walk.png', { frameWidth: 50, frameHeight: 48 });
         
-        this.load.image('background', 'assets/space.png');
-        this.load.image('logo', 'assets/phaser.png');
-
-        //  The ship sprite is CC0 from https://ansimuz.itch.io - check out his other work!
-        this.load.spritesheet('ship', 'assets/spaceship.png', { frameWidth: 176, frameHeight: 96 });
+        // Load effects
+        this.load.spritesheet('blue-explosion', 'assets/effects/blue-explosion.png', { frameWidth: 32, frameHeight: 32 });
     }
 
     create() {
@@ -29,7 +34,30 @@ export class Start extends Phaser.Scene {
         this.player.setCollideWorldBounds(true);
         this.cameras.main.startFollow(this.player, true, 0.05, 0.05);
 
+        // Add score display
+        this.scoreText = this.add.text(16, 16, 'Score: 0', {
+            fontSize: '32px',
+            fill: '#ffffff',
+            stroke: '#000000',
+            strokeThickness: 2
+        });
+        this.scoreText.setScrollFactor(0); // Keep UI fixed to camera
+
         this.cursors = this.input.keyboard.createCursorKeys();
+
+        // Add bullet group
+        this.bullets = this.physics.add.group();
+        
+        // Create imp group (moved before collision setup)
+        this.imps = this.physics.add.group();
+        
+        // Create animations
+        this.anims.create({
+            key: 'explosion',
+            frames: this.anims.generateFrameNumbers('blue-explosion', { start: 0, end: 3 }),
+            frameRate: 10,
+            repeat: 0
+        });
 
         // Add imp animation
         this.anims.create({
@@ -39,8 +67,12 @@ export class Start extends Phaser.Scene {
             repeat: -1
         });
 
-        // Create imp group
-        this.imps = this.physics.add.group();
+        // Setup bullet-imp collision (moved after groups are created)
+        this.physics.add.overlap(this.bullets, this.imps, this.onBulletHitImp, null, this);
+
+        // Setup input handlers
+        this.input.keyboard.on('keydown-SPACE', () => this.shootBullet());
+        this.input.on('pointerdown', () => this.shootBullet());
 
         // Start spawning imps
         this.time.addEvent({
@@ -87,6 +119,64 @@ export class Start extends Phaser.Scene {
         const imp = this.imps.create(x, y, 'imp_red_walk');
         imp.play('imp_walk');
         imp.setCollideWorldBounds(true);
+    }
+
+    findNearestImp() {
+        let nearestImp = null;
+        let shortestDistance = Infinity;
+        
+        this.imps.getChildren().forEach(imp => {
+            const distance = Phaser.Math.Distance.Between(this.player.x, this.player.y, imp.x, imp.y);
+            if (distance < shortestDistance) {
+                shortestDistance = distance;
+                nearestImp = imp;
+            }
+        });
+        
+        return nearestImp;
+    }
+
+    shootBullet() {
+        const currentTime = this.time.now;
+        if (currentTime - this.lastShotTime < this.fireRate) {
+            return; // Still in cooldown
+        }
+
+        this.lastShotTime = currentTime;
+
+        const bullet = this.bullets.create(this.player.x, this.player.y, 'blue-explosion');
+        bullet.setFrame(0);  // Use first frame as bullet
+        
+        const nearestImp = this.findNearestImp();
+        let angle;
+        
+        if (nearestImp) {
+            // Shoot at nearest imp
+            angle = Phaser.Math.Angle.Between(this.player.x, this.player.y, nearestImp.x, nearestImp.y);
+        } else {
+            // Shoot in random direction
+            angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+        }
+        
+        const velocity = new Phaser.Math.Vector2();
+        velocity.setToPolar(angle, 300);  // 300 is bullet speed
+        
+        bullet.setVelocity(velocity.x, velocity.y);
+    }
+
+    onBulletHitImp(bullet, imp) {
+        const explosion = this.add.sprite(imp.x, imp.y, 'blue-explosion');
+        explosion.play('explosion');
+        explosion.once('animationcomplete', () => {
+            explosion.destroy();
+        });
+        
+        bullet.destroy();
+        imp.destroy();
+        
+        // Update score
+        this.score += 1;
+        this.scoreText.setText('Score: ' + this.score);
     }
 
     update() {
