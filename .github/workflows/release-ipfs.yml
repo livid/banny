@@ -7,7 +7,7 @@ on:
       - master
 
 jobs:
-  release-and-ipfs:
+  release-and-ipfs-upload:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -47,4 +47,6 @@ jobs:
 
       - name: Prewarm IPFS Gateway
         run: |
-          wget --recursive --no-parent --no-host-directories --cut-dirs=1 --reject "index.html*" "https://${{ env.CID }}.eth.sucks/"
+          wget --recursive --no-parent --no-host-directories --cut-dirs=1 "https://${{ env.CID }}.eth.sucks/"
+          wget --recursive --no-parent --no-host-directories --cut-dirs=1 "https://${{ env.CID }}.eth.sucks/src/"
+          wget --recursive --no-parent --no-host-directories --cut-dirs=1 "https://${{ env.CID }}.eth.sucks/assets/"
