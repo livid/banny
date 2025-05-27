@@ -18,6 +18,7 @@ jobs:
           wget https://github.com/ipfs/kubo/releases/latest/download/kubo_v0.35.0_linux-amd64.tar.gz
           tar -xzf kubo_v0.35.0_linux-amd64.tar.gz
           sudo bash kubo/install.sh
+          ipfs init --profile=badgerds
 
       - name: Add folder to IPFS
         id: ipfs_add
