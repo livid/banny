@@ -12,6 +12,7 @@ export class Start extends Phaser.Scene {
         // Boomerang properties
         this.lastBoomerangTime = 0;
         this.boomerangCooldown = 5000; // 5 seconds
+        this.boomerangCount = 3; // Number of boomerangs to fire at once (1-5)
         // Big Boom properties
         this.lastBigBoomTime = 0;
         this.bigBoomCooldown = 5000; // 5 seconds
@@ -381,25 +382,28 @@ export class Start extends Phaser.Scene {
 
         this.lastBoomerangTime = currentTime;
 
-        const boomerang = this.boomerangs.create(this.player.x, this.player.y, 'boomerang');
-        boomerang.setScale(4);
-        
-        // Random direction
-        const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
-        
-        // Store boomerang properties
-        boomerang.startX = this.player.x;
-        boomerang.startY = this.player.y;
-        boomerang.angle = angle;
-        boomerang.travelDistance = 300;
-        boomerang.distanceTraveled = 0;
-        boomerang.returning = false;
-        boomerang.speed = 500;
-        
-        // Set initial velocity
-        const velocity = new Phaser.Math.Vector2();
-        velocity.setToPolar(angle, boomerang.speed);
-        boomerang.setVelocity(velocity.x, velocity.y);
+        // Fire multiple boomerangs
+        for (let i = 0; i < this.boomerangCount; i++) {
+            const boomerang = this.boomerangs.create(this.player.x, this.player.y, 'boomerang');
+            boomerang.setScale(4);
+            
+            // Random direction for each boomerang
+            const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+            
+            // Store boomerang properties
+            boomerang.startX = this.player.x;
+            boomerang.startY = this.player.y;
+            boomerang.angle = angle;
+            boomerang.travelDistance = 360;
+            boomerang.distanceTraveled = 0;
+            boomerang.returning = false;
+            boomerang.speed = 500;
+            
+            // Set initial velocity
+            const velocity = new Phaser.Math.Vector2();
+            velocity.setToPolar(angle, boomerang.speed);
+            boomerang.setVelocity(velocity.x, velocity.y);
+        }
     }
 
     shootBigBoom() {
