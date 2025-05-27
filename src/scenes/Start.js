@@ -4,11 +4,13 @@ export class Start extends Phaser.Scene {
         super('Start');
         this.score = 0;
         this.lastShotTime = 0;
-        this.fireRate = 500; // Milliseconds between shots
+        this.fireRate = 500; // Default, will be overridden by character data
         this.currentSpawnDelay = 1000; // Start with 1 second delay
         this.health = 100; // Player health
         this.maxHealth = 100;
         this.gameOver = false;
+        this.selectedCharacter = null; // Will store selected character data
+        this.enterKey = null; // For game over input
         // Boomerang properties
         this.lastBoomerangTime = 0;
         this.boomerangCooldown = 5000; // 5 seconds
@@ -18,13 +20,25 @@ export class Start extends Phaser.Scene {
         this.bigBoomCooldown = 5000; // 5 seconds
     }
 
+    init() {
+        // Reset game state when scene starts
+        this.score = 0;
+        this.health = this.maxHealth;
+        this.gameOver = false;
+        this.currentSpawnDelay = 1000;
+        this.lastShotTime = 0;
+        this.lastBoomerangTime = 0;
+        this.lastBigBoomTime = 0;
+    }
+
     preload() {
         // Load desert map
         this.load.image('desert-tiles', 'assets/Desert Tileset.png');
         this.load.tilemapTiledJSON('desert-map', 'assets/Desert.json');
         
-        // Load player
-        this.load.image('jango', 'assets/jango.png');
+        // Load character images
+        this.load.image('jango', 'assets/characters/jango.png');
+        this.load.image('peri', 'assets/characters/peri.png');
 
         // Load monster
         this.load.spritesheet('imp_red_walk', 'assets/monsters/imp_red_walk.png', { frameWidth: 50, frameHeight: 48 });
@@ -48,6 +62,20 @@ export class Start extends Phaser.Scene {
     }
 
     create() {
+        // Get selected character data
+        this.selectedCharacter = this.registry.get('selectedCharacter');
+        if (this.selectedCharacter) {
+            this.fireRate = this.selectedCharacter.fireRate;
+        } else {
+            // Fallback to default character if none selected
+            this.selectedCharacter = {
+                name: "jango.eth",
+                image: "jango.png",
+                fireRate: 500
+            };
+            this.fireRate = 500;
+        }
+
         const map = this.make.tilemap({ key: 'desert-map', tileWidth: 24, tileHeight: 24 });
         const tileset = map.addTilesetImage("Desert Tileset", 'desert-tiles');
         const layer = map.createLayer('Ground', tileset, 0, 0);
@@ -55,7 +83,10 @@ export class Start extends Phaser.Scene {
         this.cameras.main.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
         this.physics.world.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
         this.cameras.main.setZoom(1);
-        this.player = this.physics.add.sprite(640, 360, 'jango');
+        
+        // Use selected character sprite or default to jango
+        const characterSprite = this.selectedCharacter ? this.selectedCharacter.image.replace('.png', '') : 'jango';
+        this.player = this.physics.add.sprite(640, 360, characterSprite);
         this.player.setCollideWorldBounds(true);
         this.player.setScale(1);
         
@@ -74,6 +105,20 @@ export class Start extends Phaser.Scene {
             strokeThickness: 2
         });
         this.scoreText.setScrollFactor(0); // Keep UI fixed to camera
+
+        // Add character info display
+        if (this.selectedCharacter) {
+            const fireRateDisplay = this.selectedCharacter.fireRate < 200 ? 'Very Fast' : 
+                                  this.selectedCharacter.fireRate < 400 ? 'Fast' : 
+                                  this.selectedCharacter.fireRate < 600 ? 'Medium' : 'Slow';
+            this.characterInfoText = this.add.text(16, 56, `Character: ${this.selectedCharacter.name}\nFire Rate: ${fireRateDisplay}`, {
+                fontSize: '16px',
+                fill: '#ffffff',
+                stroke: '#000000',
+                strokeThickness: 1
+            });
+            this.characterInfoText.setScrollFactor(0);
+        }
 
         // Add health bar
         this.createHealthBar();
@@ -129,9 +174,10 @@ export class Start extends Phaser.Scene {
         this.physics.add.overlap(this.player, this.imps, this.onPlayerHitImp, null, this);
 
         // Setup input handlers
-        this.input.keyboard.on('keydown-ENTER', () => {
+        this.enterKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
+        this.enterKey.on('down', () => {
             if (this.gameOver) {
-                this.restartGame();
+                this.scene.start('CharacterSelection');
             }
         });
         this.input.on('pointerdown', () => this.shootBullet());
@@ -144,12 +190,28 @@ export class Start extends Phaser.Scene {
         this.hurtSound = this.sound.add('hurt', { volume: 0.75 });
         this.maleHurtSound = this.sound.add('male-hurt', { volume: 0.5 });
 
-        // Add background music
-        this.backgroundMusic = this.sound.add('background-music', { 
-            volume: 0.3, 
-            loop: true 
-        });
-        this.backgroundMusic.play();
+        // Add background music - use global registry to prevent overlaps
+        let globalBackgroundMusic = this.registry.get('backgroundMusic');
+        
+        if (!globalBackgroundMusic || !globalBackgroundMusic.isPlaying) {
+            // Stop any existing background music first
+            if (globalBackgroundMusic) {
+                globalBackgroundMusic.stop();
+                globalBackgroundMusic.destroy();
+            }
+            
+            this.backgroundMusic = this.sound.add('background-music', { 
+                volume: 0.3, 
+                loop: true 
+            });
+            this.backgroundMusic.play();
+            
+            // Store in global registry
+            this.registry.set('backgroundMusic', this.backgroundMusic);
+        } else {
+            // Use existing background music
+            this.backgroundMusic = globalBackgroundMusic;
+        }
 
         // Start spawning imps
         this.spawnTimer = this.time.addEvent({
@@ -212,6 +274,26 @@ export class Start extends Phaser.Scene {
         if (this.health <= 0) {
             this.triggerGameOver();
         }
+   }
+
+    shutdown() {
+        // Clean up when leaving the scene
+        if (this.spawnTimer) {
+            this.spawnTimer.destroy();
+        }
+        
+        // Only stop background music if we're leaving the game completely
+        // For character selection, keep music playing
+        const globalBackgroundMusic = this.registry.get('backgroundMusic');
+        if (globalBackgroundMusic && globalBackgroundMusic.isPlaying) {
+            // Keep music playing for character selection
+            console.log('Keeping background music playing');
+        }
+        
+        if (this.enterKey) {
+            this.enterKey.removeAllListeners();
+        }
+        console.log('Start scene shutdown');
     }
 
     triggerGameOver() {
@@ -229,7 +311,7 @@ export class Start extends Phaser.Scene {
         });
 
         // Show game over text
-        this.gameOverText = this.add.text(this.cameras.main.centerX, this.cameras.main.centerY, 'GAME OVER\nPress ENTER to restart', {
+        this.gameOverText = this.add.text(this.cameras.main.centerX, this.cameras.main.centerY, 'GAME OVER\nPress ENTER to select character', {
             fontSize: '48px',
             fill: '#ff0000',
             stroke: '#000000',

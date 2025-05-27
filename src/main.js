@@ -1,4 +1,5 @@
 import { Start } from './scenes/Start.js';
+import { CharacterSelection } from './scenes/CharacterSelection.js';
 
 const config = {
     type: Phaser.WEBGL,
@@ -10,6 +11,7 @@ const config = {
     backgroundColor: '#000000',
     pixelArt: true,
     scene: [
+        CharacterSelection,
         Start
     ],
     physics: {

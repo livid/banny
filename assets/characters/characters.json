@@ -1,0 +1,14 @@
+{
+    "characters": [
+        {
+            "name": "jango.eth",
+            "image": "jango.png",
+            "fireRate": 500
+        },
+        {
+            "name": "peri.eth",
+            "image": "peri.png",
+            "fireRate": 100
+        }
+    ]
+}
