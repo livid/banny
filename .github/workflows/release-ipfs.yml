@@ -37,3 +37,10 @@ jobs:
             Gateway URL: https://${{ env.CID }}.eth.sucks/
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install wget
+        run: sudo apt-get update && sudo apt-get install -y wget
+
+      - name: Prewarm IPFS Gateway
+        run: |
+          wget --recursive --no-parent --no-host-directories --cut-dirs=1 --reject "index.html*" "https://${{ env.CID }}.eth.sucks/"
