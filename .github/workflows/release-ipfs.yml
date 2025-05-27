@@ -19,6 +19,8 @@ jobs:
           tar -xzf kubo_v0.35.0_linux-amd64.tar.gz
           sudo bash kubo/install.sh
           ipfs init --profile=server
+          nohup ipfs daemon &
+          sleep 10
           ipfs swarm peering add /ip4/167.71.172.216/tcp/4001/p2p/12D3KooWBJY6ZVV8Tk8UDDFMEqWoxn89Xc8wnpm8uBFSR3ijDkui
           ipfs swarm peering add /ip4/143.198.18.166/tcp/4001/p2p/12D3KooWDaGQ3Fu3iLgFxrrg5Vfef9z5L3DQZoyqFxQJbKKPnCc8
 
