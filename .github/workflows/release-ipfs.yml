@@ -1,0 +1,38 @@
+name: Release and IPFS Upload
+
+on:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  release-and-ipfs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download and install IPFS
+        run: |
+          wget https://github.com/ipfs/kubo/releases/latest/download/kubo_v0.35.0_linux-amd64.tar.gz
+          tar -xzf kubo_v0.35.0_linux-amd64.tar.gz
+          sudo bash kubo/install.sh
+
+      - name: Add folder to IPFS
+        id: ipfs_add
+        run: |
+          CID=$(ipfs add --recursive --cid-version=1 -Q .)
+          echo "CID=$CID" >> $GITHUB_ENV
+
+      - name: Create or update GitHub Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Latest Release
+          body: |
+            IPFS CIDv1: ${{ env.CID }}
+            Gateway URL: https://${{ env.CID }}.eth.sucks/
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
