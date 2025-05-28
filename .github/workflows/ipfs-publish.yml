@@ -9,8 +9,7 @@ jobs:
   ipfs-publish:
     runs-on: self-hosted
     permissions:
-      contents: read
-      discussions: write
+      contents: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
