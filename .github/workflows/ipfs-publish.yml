@@ -8,6 +8,9 @@ on:
 jobs:
   ipfs-publish:
     runs-on: self-hosted
+    permissions:
+      contents: read
+      discussions: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -23,3 +26,32 @@ jobs:
           wget --recursive --no-parent --no-host-directories --cut-dirs=1 "https://${{ env.CID }}.eth.sucks/"
           wget --recursive --no-parent --no-host-directories --cut-dirs=1 "https://${{ env.CID }}.eth.sucks/src/"
           wget --recursive --no-parent --no-host-directories --cut-dirs=1 "https://${{ env.CID }}.eth.sucks/assets/"
+
+      - name: Create GitHub Discussion
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Get the commit message
+          COMMIT_MESSAGE=$(git log -1 --pretty=format:"%s")
+          COMMIT_SHA=$(git rev-parse --short HEAD)
+          
+          # Create discussion body
+          DISCUSSION_BODY="🚀 **New IPFS Deployment**
+
+          **CID:** \`${{ env.CID }}\`
+          **Gateway URL:** https://${{ env.CID }}.eth.sucks/
+          **Commit:** [\`$COMMIT_SHA\`](https://github.com/${{ github.repository }}/commit/${{ github.sha }}) - $COMMIT_MESSAGE
+          **Deployed at:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')
+
+          ---
+          This deployment was automatically published to IPFS and is available at the gateway URL above."
+          
+          # Create the discussion
+          gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            /repos/${{ github.repository }}/discussions \
+            -f title="IPFS Deployment - CID: ${{ env.CID }}" \
+            -f body="$DISCUSSION_BODY" \
+            -f category_id="$(gh api /repos/${{ github.repository }}/discussions/categories --jq '.[] | select(.name=="Announcements") | .id')"
