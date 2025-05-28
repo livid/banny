@@ -46,39 +46,105 @@ jobs:
           ---
           This deployment was automatically published to IPFS and is available at the gateway URL above."
           
-          # Check if discussions are enabled and get categories
-          CATEGORIES_RESPONSE=$(gh api /repos/${{ github.repository }}/discussions/categories 2>/dev/null || echo "[]")
+          # Check if discussions are enabled and get categories using GraphQL
+          echo "Fetching discussion categories using GraphQL..."
           
-          if [ "$CATEGORIES_RESPONSE" = "[]" ]; then
-            echo "Discussions are not enabled on this repository. Skipping discussion creation."
-            echo "To enable discussions, go to your repository Settings > Features > Discussions"
-            exit 0
-          fi
+          # GraphQL query to get repository discussion categories
+          GRAPHQL_QUERY='{
+            "query": "query($owner: String!, $name: String!) { repository(owner: $owner, name: $name) { discussionCategories(first: 10) { nodes { id name } } } }",
+            "variables": {
+              "owner": "'$(echo ${{ github.repository }} | cut -d'/' -f1)'",
+              "name": "'$(echo ${{ github.repository }} | cut -d'/' -f2)'"
+            }
+          }'
           
-          # Try to get the Announcements category ID, fallback to General or first available
-          CATEGORY_ID=$(echo "$CATEGORIES_RESPONSE" | jq -r '.[] | select(.name=="Announcements") | .id' 2>/dev/null || echo "")
+          CATEGORIES_RESPONSE=$(gh api graphql --input - <<< "$GRAPHQL_QUERY" 2>&1)
+          CATEGORIES_EXIT_CODE=$?
           
-          if [ -z "$CATEGORY_ID" ]; then
-            CATEGORY_ID=$(echo "$CATEGORIES_RESPONSE" | jq -r '.[] | select(.name=="General") | .id' 2>/dev/null || echo "")
-          fi
+          echo "Categories GraphQL response: $CATEGORIES_RESPONSE"
+          echo "Exit code: $CATEGORIES_EXIT_CODE"
           
-          if [ -z "$CATEGORY_ID" ]; then
-            CATEGORY_ID=$(echo "$CATEGORIES_RESPONSE" | jq -r '.[0].id' 2>/dev/null || echo "")
-          fi
-          
-          if [ -z "$CATEGORY_ID" ]; then
-            echo "No discussion categories found. Cannot create discussion."
+          if [ $CATEGORIES_EXIT_CODE -ne 0 ]; then
+            echo "Failed to fetch discussion categories. Error: $CATEGORIES_RESPONSE"
+            echo "This might mean discussions are not enabled or there's a permission issue."
             exit 1
           fi
           
-          # Create the discussion
-          gh api \
-            --method POST \
-            -H "Accept: application/vnd.github+json" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            /repos/${{ github.repository }}/discussions \
-            -f title="IPFS Deployment - CID: ${{ env.CID }}" \
-            -f body="$DISCUSSION_BODY" \
-            -f category_id="$CATEGORY_ID" \
-            && echo "Discussion created successfully!" \
-            || echo "Failed to create discussion"
+          # Check if response contains errors
+          if echo "$CATEGORIES_RESPONSE" | jq -e '.errors' >/dev/null 2>&1; then
+            echo "GraphQL errors found:"
+            echo "$CATEGORIES_RESPONSE" | jq '.errors'
+            exit 1
+          fi
+          
+          # Extract categories from GraphQL response
+          CATEGORIES=$(echo "$CATEGORIES_RESPONSE" | jq '.data.repository.discussionCategories.nodes' 2>/dev/null)
+          
+          if [ -z "$CATEGORIES" ] || [ "$CATEGORIES" = "null" ]; then
+            echo "No discussion categories found. Discussions might not be enabled."
+            exit 1
+          fi
+          
+          # Count categories
+          CATEGORY_COUNT=$(echo "$CATEGORIES" | jq length 2>/dev/null || echo "0")
+          echo "Found $CATEGORY_COUNT discussion categories"
+          
+          if [ "$CATEGORY_COUNT" -eq 0 ]; then
+            echo "No discussion categories found. Please enable discussions on your repository."
+            exit 1
+          fi
+          
+          # List available categories for debugging
+          echo "Available categories:"
+          echo "$CATEGORIES" | jq -r '.[] | "- \(.name) (ID: \(.id))"' 2>/dev/null || echo "Could not parse categories"
+          
+          # Try to get the Announcements category ID, fallback to General or first available
+          CATEGORY_ID=$(echo "$CATEGORIES" | jq -r '.[] | select(.name=="Announcements") | .id' 2>/dev/null)
+          
+          if [ -z "$CATEGORY_ID" ] || [ "$CATEGORY_ID" = "null" ]; then
+            echo "Announcements category not found, trying General..."
+            CATEGORY_ID=$(echo "$CATEGORIES" | jq -r '.[] | select(.name=="General") | .id' 2>/dev/null)
+          fi
+          
+          if [ -z "$CATEGORY_ID" ] || [ "$CATEGORY_ID" = "null" ]; then
+            echo "General category not found, using first available category..."
+            CATEGORY_ID=$(echo "$CATEGORIES" | jq -r '.[0].id' 2>/dev/null)
+          fi
+          
+          if [ -z "$CATEGORY_ID" ] || [ "$CATEGORY_ID" = "null" ]; then
+            echo "Could not determine category ID. Available categories:"
+            echo "$CATEGORIES" | jq -r '.[] | "\(.name): \(.id)"' 2>/dev/null || echo "Could not parse categories"
+            exit 1
+          fi
+          
+          echo "Using category ID: $CATEGORY_ID"
+          
+          # Create the discussion using GraphQL
+          echo "Creating discussion..."
+          
+          CREATE_DISCUSSION_QUERY='{
+            "query": "mutation($repositoryId: ID!, $categoryId: ID!, $title: String!, $body: String!) { createDiscussion(input: {repositoryId: $repositoryId, categoryId: $categoryId, title: $title, body: $body}) { discussion { url } } }",
+            "variables": {
+              "repositoryId": "'$(gh api graphql -f query='query($owner: String!, $name: String!) { repository(owner: $owner, name: $name) { id } }' -f owner="$(echo ${{ github.repository }} | cut -d'/' -f1)" -f name="$(echo ${{ github.repository }} | cut -d'/' -f2)" --jq '.data.repository.id')'",
+              "categoryId": "'"$CATEGORY_ID"'",
+              "title": "IPFS Deployment - CID: ${{ env.CID }}",
+              "body": "'"$(echo "$DISCUSSION_BODY" | sed 's/"/\\"/g' | tr '\n' ' ')"'"
+            }
+          }'
+          
+          CREATE_RESPONSE=$(gh api graphql --input - <<< "$CREATE_DISCUSSION_QUERY" 2>&1)
+          CREATE_EXIT_CODE=$?
+          
+          if [ $CREATE_EXIT_CODE -eq 0 ]; then
+            # Check if there were GraphQL errors
+            if echo "$CREATE_RESPONSE" | jq -e '.errors' >/dev/null 2>&1; then
+              echo "Failed to create discussion. GraphQL errors:"
+              echo "$CREATE_RESPONSE" | jq '.errors'
+            else
+              DISCUSSION_URL=$(echo "$CREATE_RESPONSE" | jq -r '.data.createDiscussion.discussion.url' 2>/dev/null)
+              echo "Discussion created successfully!"
+              echo "Discussion URL: $DISCUSSION_URL"
+            fi
+          else
+            echo "Failed to create discussion. Error: $CREATE_RESPONSE"
+          fi
