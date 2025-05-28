@@ -1,0 +1,25 @@
+name: IPFS Publish
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  ipfs-publish:
+    runs-on: self-hosted
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Add folder to IPFS
+        id: ipfs_add
+        run: |
+          CID=$(ipfs add --recursive --cid-version=1 -Q .)
+          echo "CID=$CID" >> $GITHUB_ENV
+
+      - name: Prewarm IPFS Gateway
+        run: |
+          wget --recursive --no-parent --no-host-directories --cut-dirs=1 "https://${{ env.CID }}.eth.sucks/"
+          wget --recursive --no-parent --no-host-directories --cut-dirs=1 "https://${{ env.CID }}.eth.sucks/src/"
+          wget --recursive --no-parent --no-host-directories --cut-dirs=1 "https://${{ env.CID }}.eth.sucks/assets/"
