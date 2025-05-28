@@ -8,6 +8,7 @@ export class CharacterSelection extends Phaser.Scene {
         this.nameTexts = [];
         this.statsTexts = [];
         this.cursors = null;
+        this.enterKey = null;
         this.debugText = null;
     }
 
@@ -54,7 +55,7 @@ export class CharacterSelection extends Phaser.Scene {
         this.createCharacterGrid();
 
         // Add instructions
-        this.add.text(this.cameras.main.centerX, this.cameras.main.height - 60, 'Use ARROW KEYS to navigate • SPACE to select', {
+        this.add.text(this.cameras.main.centerX, this.cameras.main.height - 60, 'Use ARROW KEYS to navigate • ENTER to select', {
             fontSize: '24px',
             fill: '#ffffff',
             stroke: '#000000',
@@ -72,8 +73,9 @@ export class CharacterSelection extends Phaser.Scene {
 
         // Set up input - use only cursor keys for simplicity
         this.cursors = this.input.keyboard.createCursorKeys();
+        this.enterKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
         
-        console.log('Setting up keyboard input with cursor keys');
+        console.log('Setting up keyboard input with cursor keys and ENTER');
 
         // Ensure background music is playing
         let globalBackgroundMusic = this.registry.get('backgroundMusic');
@@ -108,8 +110,8 @@ export class CharacterSelection extends Phaser.Scene {
             console.log('Right arrow pressed');
             this.moveSelection(1);
         }
-        if (Phaser.Input.Keyboard.JustDown(this.cursors.space)) {
-            console.log('Space key pressed - selecting character');
+        if (Phaser.Input.Keyboard.JustDown(this.enterKey)) {
+            console.log('Enter key pressed - selecting character');
             this.selectCharacter();
         }
     }
@@ -220,6 +222,9 @@ export class CharacterSelection extends Phaser.Scene {
         // Clean up cursor keys
         if (this.cursors) {
             this.cursors = null;
+        }
+        if (this.enterKey) {
+            this.enterKey = null;
         }
         console.log('CharacterSelection scene shutdown');
     }
