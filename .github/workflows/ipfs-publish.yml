@@ -25,9 +25,3 @@ jobs:
           wget --recursive --no-parent --no-host-directories --cut-dirs=1 "https://${{ env.CID }}.eth.sucks/"
           wget --recursive --no-parent --no-host-directories --cut-dirs=1 "https://${{ env.CID }}.eth.sucks/src/"
           wget --recursive --no-parent --no-host-directories --cut-dirs=1 "https://${{ env.CID }}.eth.sucks/assets/"
-
-      - name: Update Repository Description
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh repo edit ${{ github.repository }} --description "Experimental Banny Game https://${{ env.CID }}.eth.sucks/"
