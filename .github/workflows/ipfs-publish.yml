@@ -27,11 +27,8 @@ jobs:
           wget --recursive --no-parent --no-host-directories --cut-dirs=1 "https://${{ env.CID }}.eth.sucks/src/"
           wget --recursive --no-parent --no-host-directories --cut-dirs=1 "https://${{ env.CID }}.eth.sucks/assets/"
 
-      - name: Create Discussion
+      - name: Update Repository Description
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          COMMIT_MESSAGE=$(git log -1 --pretty=%B)
-          DISCUSSION_TITLE="New IPFS Deployment: ${{ env.CID }}"
-          DISCUSSION_BODY="**CID:** ${{ env.CID }}%0A**Gateway URL:** https://${{ env.CID }}.eth.sucks/%0A**Commit Message:**%0A${COMMIT_MESSAGE}"
-          gh discussion create --repo ${{ github.repository }} --category "Announcements" --title "$DISCUSSION_TITLE" --body "$DISCUSSION_BODY"
+          gh repo edit ${{ github.repository }} --description "Experimental Banny Game https://${{ env.CID }}.eth.sucks/"
