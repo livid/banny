@@ -46,6 +46,31 @@ jobs:
           ---
           This deployment was automatically published to IPFS and is available at the gateway URL above."
           
+          # Check if discussions are enabled and get categories
+          CATEGORIES_RESPONSE=$(gh api /repos/${{ github.repository }}/discussions/categories 2>/dev/null || echo "[]")
+          
+          if [ "$CATEGORIES_RESPONSE" = "[]" ]; then
+            echo "Discussions are not enabled on this repository. Skipping discussion creation."
+            echo "To enable discussions, go to your repository Settings > Features > Discussions"
+            exit 0
+          fi
+          
+          # Try to get the Announcements category ID, fallback to General or first available
+          CATEGORY_ID=$(echo "$CATEGORIES_RESPONSE" | jq -r '.[] | select(.name=="Announcements") | .id' 2>/dev/null || echo "")
+          
+          if [ -z "$CATEGORY_ID" ]; then
+            CATEGORY_ID=$(echo "$CATEGORIES_RESPONSE" | jq -r '.[] | select(.name=="General") | .id' 2>/dev/null || echo "")
+          fi
+          
+          if [ -z "$CATEGORY_ID" ]; then
+            CATEGORY_ID=$(echo "$CATEGORIES_RESPONSE" | jq -r '.[0].id' 2>/dev/null || echo "")
+          fi
+          
+          if [ -z "$CATEGORY_ID" ]; then
+            echo "No discussion categories found. Cannot create discussion."
+            exit 1
+          fi
+          
           # Create the discussion
           gh api \
             --method POST \
@@ -54,4 +79,6 @@ jobs:
             /repos/${{ github.repository }}/discussions \
             -f title="IPFS Deployment - CID: ${{ env.CID }}" \
             -f body="$DISCUSSION_BODY" \
-            -f category_id="$(gh api /repos/${{ github.repository }}/discussions/categories --jq '.[] | select(.name=="Announcements") | .id')"
+            -f category_id="$CATEGORY_ID" \
+            && echo "Discussion created successfully!" \
+            || echo "Failed to create discussion"
