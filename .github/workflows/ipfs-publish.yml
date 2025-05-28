@@ -119,16 +119,45 @@ jobs:
           
           echo "Using category ID: $CATEGORY_ID"
           
+          # Get repository ID for creating discussion
+          echo "Getting repository ID..."
+          REPO_ID_QUERY='{
+            "query": "query($owner: String!, $name: String!) { repository(owner: $owner, name: $name) { id } }",
+            "variables": {
+              "owner": "'$(echo ${{ github.repository }} | cut -d'/' -f1)'",
+              "name": "'$(echo ${{ github.repository }} | cut -d'/' -f2)'"
+            }
+          }'
+          
+          REPO_ID_RESPONSE=$(gh api graphql --input - <<< "$REPO_ID_QUERY" 2>&1)
+          REPO_ID_EXIT_CODE=$?
+          
+          if [ $REPO_ID_EXIT_CODE -ne 0 ]; then
+            echo "Failed to get repository ID. Error: $REPO_ID_RESPONSE"
+            exit 1
+          fi
+          
+          REPOSITORY_ID=$(echo "$REPO_ID_RESPONSE" | jq -r '.data.repository.id' 2>/dev/null)
+          echo "Repository ID: $REPOSITORY_ID"
+          
+          if [ -z "$REPOSITORY_ID" ] || [ "$REPOSITORY_ID" = "null" ]; then
+            echo "Could not get repository ID"
+            exit 1
+          fi
+          
           # Create the discussion using GraphQL
           echo "Creating discussion..."
+          
+          # Escape the discussion body for JSON
+          ESCAPED_BODY=$(echo "$DISCUSSION_BODY" | jq -Rs .)
           
           CREATE_DISCUSSION_QUERY='{
             "query": "mutation($repositoryId: ID!, $categoryId: ID!, $title: String!, $body: String!) { createDiscussion(input: {repositoryId: $repositoryId, categoryId: $categoryId, title: $title, body: $body}) { discussion { url } } }",
             "variables": {
-              "repositoryId": "'$(gh api graphql -f query='query($owner: String!, $name: String!) { repository(owner: $owner, name: $name) { id } }' -f owner="$(echo ${{ github.repository }} | cut -d'/' -f1)" -f name="$(echo ${{ github.repository }} | cut -d'/' -f2)" --jq '.data.repository.id')'",
-              "categoryId": "'"$CATEGORY_ID"'",
+              "repositoryId": "'$REPOSITORY_ID'",
+              "categoryId": "'$CATEGORY_ID'",
               "title": "IPFS Deployment - CID: ${{ env.CID }}",
-              "body": "'"$(echo "$DISCUSSION_BODY" | sed 's/"/\\"/g' | tr '\n' ' ')"'"
+              "body": '$ESCAPED_BODY'
             }
           }'
           
