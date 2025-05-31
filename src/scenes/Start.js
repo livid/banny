@@ -33,8 +33,8 @@ export class Start extends Phaser.Scene {
 
     preload() {
         // Load desert map
-        this.load.image('desert-tiles', 'assets/Desert Tileset.png');
-        this.load.tilemapTiledJSON('desert-map', 'assets/Desert.json');
+        this.load.image('desert-tiles', 'assets/maps/Desert Tileset.png');
+        this.load.tilemapTiledJSON('desert-map', 'assets/maps/Desert.json');
         
         // Load character images
         this.load.image('jango', 'assets/characters/jango.png');
@@ -78,7 +78,12 @@ export class Start extends Phaser.Scene {
 
         const map = this.make.tilemap({ key: 'desert-map', tileWidth: 24, tileHeight: 24 });
         const tileset = map.addTilesetImage("Desert Tileset", 'desert-tiles');
-        const layer = map.createLayer('Ground', tileset, 0, 0);
+        const groundLayer = map.createLayer('Ground', tileset, 0, 0);
+        const collisionLayer = map.createLayer('Collision', tileset, 0, 0);
+        
+        // Set collision on tiles that have the 'collides' property set to true in Tiled
+        collisionLayer.setCollisionByProperty({ collides: true });
+               
         // add player to center of the screen
         this.cameras.main.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
         this.physics.world.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
@@ -172,6 +177,10 @@ export class Start extends Phaser.Scene {
 
         // Setup player-imp collision
         this.physics.add.overlap(this.player, this.imps, this.onPlayerHitImp, null, this);
+
+        this.physics.add.collider(this.player, collisionLayer);
+        
+        this.physics.add.collider(this.imps, collisionLayer);
 
         // Setup input handlers
         this.enterKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
