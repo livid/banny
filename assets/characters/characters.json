@@ -8,7 +8,7 @@
         {
             "name": "peri.eth",
             "image": "peri.png",
-            "fireRate": 100
+            "fireRate": 400
         }
     ]
 }

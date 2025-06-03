@@ -17,13 +17,13 @@ export class Start extends Phaser.Scene {
         // Boomerang properties
         this.lastBoomerangTime = 0;
         this.boomerangCooldown = 5000; // 5 seconds
-        this.boomerangCount = 3; // Number of boomerangs to fire at once (1-5)
+        this.boomerangCount = 0; // Number of boomerangs to fire at once (0-8)
         // Big Boom properties
         this.lastBigBoomTime = 0;
         this.bigBoomCooldown = 5000; // 5 seconds
         
         // Power-up tracking
-        this.bigBoomCount = 1; // Number of big booms to fire at once
+        this.bigBoomCount = 0; // Number of big booms to fire at once (0-5)
         this.showingPowerUpDialog = false;
     }
 
@@ -38,7 +38,8 @@ export class Start extends Phaser.Scene {
         this.lastBigBoomTime = 0;
         this.experience = 0;
         this.level = 1;
-        this.bigBoomCount = 1;
+        this.boomerangCount = 0;
+        this.bigBoomCount = 0;
         this.showingPowerUpDialog = false;
     }
 
@@ -124,10 +125,7 @@ export class Start extends Phaser.Scene {
 
         // Add character info display
         if (this.selectedCharacter) {
-            const fireRateDisplay = this.selectedCharacter.fireRate < 200 ? 'Very Fast' : 
-                                  this.selectedCharacter.fireRate < 400 ? 'Fast' : 
-                                  this.selectedCharacter.fireRate < 600 ? 'Medium' : 'Slow';
-            this.characterInfoText = this.add.text(16, 56, `Character: ${this.selectedCharacter.name}\nLevel: 1\nFire Rate: ${fireRateDisplay}`, {
+            this.characterInfoText = this.add.text(16, 56, `Character: ${this.selectedCharacter.name}\nLevel: 1\nFire Rate: ${this.fireRate}ms`, {
                 fontSize: '16px',
                 fill: '#ffffff',
                 stroke: '#000000',
@@ -357,10 +355,7 @@ export class Start extends Phaser.Scene {
             this.level = currentLevel;
             // Update character info text to show new level
             if (this.selectedCharacter && this.characterInfoText) {
-                const fireRateDisplay = this.selectedCharacter.fireRate < 200 ? 'Very Fast' : 
-                                      this.selectedCharacter.fireRate < 400 ? 'Fast' : 
-                                      this.selectedCharacter.fireRate < 600 ? 'Medium' : 'Slow';
-                this.characterInfoText.setText(`Character: ${this.selectedCharacter.name}\nLevel: ${this.level}\nFire Rate: ${fireRateDisplay}`);
+                this.characterInfoText.setText(`Character: ${this.selectedCharacter.name}\nLevel: ${this.level}\nFire Rate: ${this.fireRate}ms`);
             }
             
             // Show power-up selection dialog on level up
@@ -392,6 +387,11 @@ export class Start extends Phaser.Scene {
         
         this.showingPowerUpDialog = true;
         this.physics.pause(); // Pause the game
+        
+        // Pause the spawn timer to prevent imps from spawning during power-up selection
+        if (this.spawnTimer) {
+            this.spawnTimer.paused = true;
+        }
         
         // Create semi-transparent overlay
         this.powerUpOverlay = this.add.rectangle(
@@ -434,16 +434,30 @@ export class Start extends Phaser.Scene {
         
         // Power-up options
         const currentFireRateMs = this.fireRate;
-        const newFireRateMs = Math.max(50, Math.floor(this.fireRate * 0.9));
+        const newFireRateMs = Math.max(100, this.fireRate - 50);
         const boomerangCount = this.boomerangCount;
         const bigBoomCount = this.bigBoomCount;
         
-        this.createPowerUpOption(1, 'Attack Speed +10%', `Fire rate: ${currentFireRateMs}ms → ${newFireRateMs}ms`);
-        this.createPowerUpOption(2, 'Extra Boomerang', `Boomerangs: ${boomerangCount} → ${Math.min(5, boomerangCount + 1)}`);
-        this.createPowerUpOption(3, 'Extra Big Boom', `Big Booms: ${bigBoomCount} → ${Math.min(5, bigBoomCount + 1)}`);
+        // Create available power-up options
+        let optionIndex = 1;
+        
+        // Show attack speed option only if not at minimum (100ms)
+        if (currentFireRateMs > 100) {
+            this.createPowerUpOption(optionIndex++, 'Attack Speed +50ms', `Fire rate: ${currentFireRateMs}ms → ${newFireRateMs}ms`, 1);
+        }
+        
+        // Show boomerang option only if not at max (8)
+        if (boomerangCount < 8) {
+            this.createPowerUpOption(optionIndex++, 'Extra Boomerang', `Boomerangs: ${boomerangCount} → ${Math.min(8, boomerangCount + 1)}`, 2);
+        }
+        
+        // Show big boom option only if not at max (5) 
+        if (bigBoomCount < 5) {
+            this.createPowerUpOption(optionIndex++, 'Extra Big Boom', `Big Booms: ${bigBoomCount} → ${Math.min(5, bigBoomCount + 1)}`, 3);
+        }
     }
     
-    createPowerUpOption(index, title, description) {
+    createPowerUpOption(index, title, description, powerUpType) {
         const y = this.cameras.main.centerY - 40 + (index - 1) * 60;
         
         // Option background
@@ -504,7 +518,7 @@ export class Start extends Phaser.Scene {
         
         // Add click handler
         optionBg.on('pointerdown', () => {
-            this.selectPowerUp(index);
+            this.selectPowerUp(powerUpType);
         });
         
         // Add keyboard input and store reference for cleanup
@@ -523,7 +537,7 @@ export class Start extends Phaser.Scene {
         
         const key = this.input.keyboard.addKey(keyCode);
         key.on('down', () => {
-            this.selectPowerUp(index);
+            this.selectPowerUp(powerUpType);
         });
         this.powerUpKeys.push(key);
     }
@@ -531,17 +545,22 @@ export class Start extends Phaser.Scene {
     selectPowerUp(powerUpIndex) {
         switch(powerUpIndex) {
             case 1:
-                // Attack Speed +10%
-                this.fireRate = Math.max(50, Math.floor(this.fireRate * 0.9));
+                // Attack Speed -50ms (minimum 100ms)
+                this.fireRate = Math.max(100, this.fireRate - 50);
                 break;
             case 2:
                 // Extra Boomerang
-                this.boomerangCount = Math.min(5, this.boomerangCount + 1);
+                this.boomerangCount = Math.min(8, this.boomerangCount + 1);
                 break;
             case 3:
                 // Extra Big Boom
                 this.bigBoomCount = Math.min(5, this.bigBoomCount + 1);
                 break;
+        }
+        
+        // Update character info text to reflect new stats
+        if (this.selectedCharacter && this.characterInfoText) {
+            this.characterInfoText.setText(`Character: ${this.selectedCharacter.name}\nLevel: ${this.level}\nFire Rate: ${this.fireRate}ms`);
         }
         
         this.hidePowerUpDialog();
@@ -550,6 +569,11 @@ export class Start extends Phaser.Scene {
     hidePowerUpDialog() {
         this.showingPowerUpDialog = false;
         this.physics.resume(); // Resume the game
+        
+        // Resume the spawn timer
+        if (this.spawnTimer) {
+            this.spawnTimer.paused = false;
+        }
         
         // Clean up dialog elements
         if (this.powerUpOverlay) {
@@ -661,8 +685,8 @@ export class Start extends Phaser.Scene {
         
         // Reset power-ups
         this.fireRate = this.selectedCharacter ? this.selectedCharacter.fireRate : 500;
-        this.boomerangCount = 3;
-        this.bigBoomCount = 1;
+        this.boomerangCount = 0;
+        this.bigBoomCount = 0;
         this.showingPowerUpDialog = false;
 
         // Update UI
@@ -695,7 +719,7 @@ export class Start extends Phaser.Scene {
     }
 
     spawnImp() {
-        if (this.gameOver) return;
+        if (this.gameOver || this.showingPowerUpDialog) return;
         
         // Get random position at the edge of the visible area
         const edge = Phaser.Math.Between(0, 3);
@@ -791,6 +815,9 @@ export class Start extends Phaser.Scene {
     shootBoomerang() {
         if (this.gameOver) return;
         
+        // Don't shoot if no boomerangs available
+        if (this.boomerangCount <= 0) return;
+        
         const currentTime = this.time.now;
         if (currentTime - this.lastBoomerangTime < this.boomerangCooldown) {
             return;
@@ -824,6 +851,9 @@ export class Start extends Phaser.Scene {
 
     shootBigBoom() {
         if (this.gameOver) return;
+        
+        // Don't shoot if no big booms available
+        if (this.bigBoomCount <= 0) return;
         
         const currentTime = this.time.now;
         if (currentTime - this.lastBigBoomTime < this.bigBoomCooldown) {
