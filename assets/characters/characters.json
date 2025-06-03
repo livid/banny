@@ -3,12 +3,16 @@
         {
             "name": "jango.eth",
             "image": "jango.png",
-            "fireRate": 500
+            "fireRate": 500,
+            "boomerang": 1,
+            "bigBoom": 0
         },
         {
             "name": "peri.eth",
             "image": "peri.png",
-            "fireRate": 400
+            "fireRate": 400,
+            "boomerang": 0,
+            "bigBoom": 1
         }
     ]
 }

@@ -78,14 +78,20 @@ export class Start extends Phaser.Scene {
         this.selectedCharacter = this.registry.get('selectedCharacter');
         if (this.selectedCharacter) {
             this.fireRate = this.selectedCharacter.fireRate;
+            this.boomerangCount = this.selectedCharacter.boomerang || 0;
+            this.bigBoomCount = this.selectedCharacter.bigBoom || 0;
         } else {
             // Fallback to default character if none selected
             this.selectedCharacter = {
                 name: "jango.eth",
                 image: "jango.png",
-                fireRate: 500
+                fireRate: 500,
+                boomerang: 1,
+                bigBoom: 0
             };
             this.fireRate = 500;
+            this.boomerangCount = 1;
+            this.bigBoomCount = 0;
         }
 
         const map = this.make.tilemap({ key: 'desert-map', tileWidth: 24, tileHeight: 24 });
@@ -685,8 +691,8 @@ export class Start extends Phaser.Scene {
         
         // Reset power-ups
         this.fireRate = this.selectedCharacter ? this.selectedCharacter.fireRate : 500;
-        this.boomerangCount = 0;
-        this.bigBoomCount = 0;
+        this.boomerangCount = this.selectedCharacter ? (this.selectedCharacter.boomerang || 0) : 0;
+        this.bigBoomCount = this.selectedCharacter ? (this.selectedCharacter.bigBoom || 0) : 0;
         this.showingPowerUpDialog = false;
 
         // Update UI
