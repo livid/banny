@@ -25,6 +25,7 @@ export class Start extends Phaser.Scene {
         // Power-up tracking
         this.bigBoomCount = 0; // Number of big booms to fire at once (0-5)
         this.bulletScale = 1.0; // Bullet size scale (1.0 - 4.0)
+        this.bulletSizeUpgradeCount = 0; // Track number of bullet size upgrades
         this.showingPowerUpDialog = false;
     }
 
@@ -448,29 +449,59 @@ export class Start extends Phaser.Scene {
         const bigBoomCount = this.bigBoomCount;
         const bulletScale = this.bulletScale;
         
-        // Create available power-up options
-        let optionIndex = 1;
+        // Collect all available power-up options
+        const availablePowerUps = [];
         
-        // Show attack speed option only if not at minimum (100ms)
+        // Add attack speed option only if not at minimum (100ms)
         if (currentFireRateMs > 100) {
-            this.createPowerUpOption(optionIndex++, 'Attack Speed +50ms', `Fire rate: ${currentFireRateMs}ms → ${newFireRateMs}ms`, 1);
+            availablePowerUps.push({
+                title: 'Attack Speed +50ms',
+                description: `Fire rate: ${currentFireRateMs}ms → ${newFireRateMs}ms`,
+                type: 1
+            });
         }
         
-        // Show boomerang option only if not at max (8)
+        // Add boomerang option only if not at max (8)
         if (boomerangCount < 8) {
-            this.createPowerUpOption(optionIndex++, 'Extra Boomerang', `Boomerangs: ${boomerangCount} → ${Math.min(8, boomerangCount + 1)}`, 2);
+            availablePowerUps.push({
+                title: 'Extra Boomerang',
+                description: `Boomerangs: ${boomerangCount} → ${Math.min(8, boomerangCount + 1)}`,
+                type: 2
+            });
         }
         
-        // Show big boom option only if not at max (5) 
+        // Add big boom option only if not at max (5) 
         if (bigBoomCount < 5) {
-            this.createPowerUpOption(optionIndex++, 'Extra Big Boom', `Big Booms: ${bigBoomCount} → ${Math.min(5, bigBoomCount + 1)}`, 3);
+            availablePowerUps.push({
+                title: 'Extra Big Boom',
+                description: `Big Booms: ${bigBoomCount} → ${Math.min(5, bigBoomCount + 1)}`,
+                type: 3
+            });
         }
         
-        // Show bullet size option only if not at max (4.0x scale)
+        // Add bullet size option only if not at max (4.0x scale)
         if (bulletScale < 4.0) {
-            const newBulletScale = Math.min(4.0, bulletScale + 0.25);
-            this.createPowerUpOption(optionIndex++, 'Bigger Bullets', `Bullet size: ${bulletScale.toFixed(2)}x → ${newBulletScale.toFixed(2)}x`, 4);
+            const newBulletScale = Math.min(4.0, bulletScale + 0.5);
+            const nextUpgradeCount = this.bulletSizeUpgradeCount + 1;
+            let description = `Bullet size: ${bulletScale.toFixed(2)}x → ${newBulletScale.toFixed(2)}x`;
+            if (nextUpgradeCount > 3) {
+                description += ` (Penetrates enemies!)`;
+            }
+            availablePowerUps.push({
+                title: 'Bigger Bullets',
+                description: description,
+                type: 4
+            });
         }
+        
+        // Randomly select up to 3 options from available power-ups
+        const maxOptions = Math.min(3, availablePowerUps.length);
+        const selectedPowerUps = Phaser.Utils.Array.Shuffle(availablePowerUps).slice(0, maxOptions);
+        
+        // Create power-up options with sequential numbering
+        selectedPowerUps.forEach((powerUp, index) => {
+            this.createPowerUpOption(index + 1, powerUp.title, powerUp.description, powerUp.type);
+        });
     }
     
     createPowerUpOption(index, title, description, powerUpType) {
@@ -577,7 +608,8 @@ export class Start extends Phaser.Scene {
                 break;
             case 4:
                 // Bigger Bullets
-                this.bulletScale = Math.min(4.0, this.bulletScale + 0.25);
+                this.bulletScale = Math.min(4.0, this.bulletScale + 0.5);
+                this.bulletSizeUpgradeCount++;
                 break;
         }
         
@@ -820,6 +852,12 @@ export class Start extends Phaser.Scene {
         bullet.setFrame(0);  // Use first frame as bullet
         bullet.setScale(this.bulletScale); // Apply bullet scale power-up
         
+        // Add visual effect for penetrating bullets
+        if (this.bulletSizeUpgradeCount > 3) {
+            bullet.setTint(0x7fff00); // Light green tint for penetrating bullets
+            bullet.setBlendMode(Phaser.BlendModes.ADD); // Additive blend for glow effect
+        }
+        
         const nearestImp = this.findNearestImp();
         let angle;
         
@@ -975,7 +1013,12 @@ export class Start extends Phaser.Scene {
             explosion.destroy();
         });
         
-        bullet.destroy();
+        // Only destroy bullet if bullet size upgrade count is 3 or less
+        // If bullet size upgrade count > 3, bullet penetrates through enemies
+        if (this.bulletSizeUpgradeCount <= 3) {
+            bullet.destroy();
+        }
+        
         imp.destroy();
         
         // Update score
