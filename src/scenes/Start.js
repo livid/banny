@@ -11,6 +11,9 @@ export class Start extends Phaser.Scene {
         this.gameOver = false;
         this.selectedCharacter = null; // Will store selected character data
         this.enterKey = null; // For game over input
+        // Experience and level system
+        this.experience = 0;
+        this.level = 1;
         // Boomerang properties
         this.lastBoomerangTime = 0;
         this.boomerangCooldown = 5000; // 5 seconds
@@ -29,6 +32,8 @@ export class Start extends Phaser.Scene {
         this.lastShotTime = 0;
         this.lastBoomerangTime = 0;
         this.lastBigBoomTime = 0;
+        this.experience = 0;
+        this.level = 1;
     }
 
     preload() {
@@ -116,7 +121,7 @@ export class Start extends Phaser.Scene {
             const fireRateDisplay = this.selectedCharacter.fireRate < 200 ? 'Very Fast' : 
                                   this.selectedCharacter.fireRate < 400 ? 'Fast' : 
                                   this.selectedCharacter.fireRate < 600 ? 'Medium' : 'Slow';
-            this.characterInfoText = this.add.text(16, 56, `Character: ${this.selectedCharacter.name}\nFire Rate: ${fireRateDisplay}`, {
+            this.characterInfoText = this.add.text(16, 56, `Character: ${this.selectedCharacter.name}\nLevel: 1\nFire Rate: ${fireRateDisplay}`, {
                 fontSize: '16px',
                 fill: '#ffffff',
                 stroke: '#000000',
@@ -127,6 +132,9 @@ export class Start extends Phaser.Scene {
 
         // Add health bar
         this.createHealthBar();
+
+        // Add experience bar
+        this.createExperienceBar();
 
         this.cursors = this.input.keyboard.createCursorKeys();
 
@@ -266,6 +274,107 @@ export class Start extends Phaser.Scene {
         this.healthText.setText(`${this.health}/${this.maxHealth}`);
     }
 
+    // Calculate experience required for a given level
+    getExperienceRequiredForLevel(level) {
+        if (level <= 1) return 0;
+        // Level 2 needs 100, Level 3 needs 240, and so on with a gradual curve
+        // Formula: base * level^1.4 to create a not-too-steep curve
+        const base = 100;
+        return Math.floor(base * Math.pow(level - 1, 1.4));
+    }
+
+    // Get total experience required to reach a level
+    getTotalExperienceForLevel(level) {
+        let total = 0;
+        for (let i = 2; i <= level; i++) {
+            total += this.getExperienceRequiredForLevel(i);
+        }
+        return total;
+    }
+
+    // Get current level based on experience
+    getLevelFromExperience(experience) {
+        let level = 1;
+        let totalExp = 0;
+        
+        while (true) {
+            const expForNextLevel = this.getExperienceRequiredForLevel(level + 1);
+            if (totalExp + expForNextLevel > experience) {
+                break;
+            }
+            totalExp += expForNextLevel;
+            level++;
+        }
+        
+        return level;
+    }
+
+    createExperienceBar() {
+        const barWidth = 200;
+        const barHeight = 20;
+        const x = this.cameras.main.width - barWidth - 16;
+        const y = 44; // Position under health bar
+
+        // Experience bar background (black border)
+        this.expBarBg = this.add.rectangle(x, y, barWidth + 4, barHeight + 4, 0x000000);
+        this.expBarBg.setOrigin(0, 0);
+        this.expBarBg.setScrollFactor(0);
+        this.expBarBg.setDepth(1000);
+
+        // Experience bar fill (blue)
+        this.expBar = this.add.rectangle(x + 2, y + 2, barWidth, barHeight, 0x0080ff);
+        this.expBar.setOrigin(0, 0);
+        this.expBar.setScrollFactor(0);
+        this.expBar.setDepth(1001);
+        this.expBar.width = 0; // Start empty
+
+        // Experience text (inside the bar)
+        this.expText = this.add.text(x + barWidth/2, y + barHeight/2, '0/100', {
+            fontSize: '12px',
+            fill: '#ffffff',
+            stroke: '#000000',
+            strokeThickness: 1
+        });
+        this.expText.setOrigin(0.5, 0.5);
+        this.expText.setScrollFactor(0);
+        this.expText.setDepth(1002);
+    }
+
+    updateExperienceBar() {
+        const currentLevel = this.getLevelFromExperience(this.experience);
+        const totalExpForCurrentLevel = this.getTotalExperienceForLevel(currentLevel);
+        const expForNextLevel = this.getExperienceRequiredForLevel(currentLevel + 1);
+        const currentLevelProgress = this.experience - totalExpForCurrentLevel;
+        
+        // Update level if it changed
+        if (currentLevel !== this.level) {
+            this.level = currentLevel;
+            // Update character info text to show new level
+            if (this.selectedCharacter && this.characterInfoText) {
+                const fireRateDisplay = this.selectedCharacter.fireRate < 200 ? 'Very Fast' : 
+                                      this.selectedCharacter.fireRate < 400 ? 'Fast' : 
+                                      this.selectedCharacter.fireRate < 600 ? 'Medium' : 'Slow';
+                this.characterInfoText.setText(`Character: ${this.selectedCharacter.name}\nLevel: ${this.level}\nFire Rate: ${fireRateDisplay}`);
+            }
+        }
+        
+        const progressPercent = expForNextLevel > 0 ? currentLevelProgress / expForNextLevel : 1;
+        const barWidth = 200;
+        
+        this.expBar.width = barWidth * progressPercent;
+        
+        if (expForNextLevel > 0) {
+            this.expText.setText(`${currentLevelProgress}/${expForNextLevel}`);
+        } else {
+            this.expText.setText('MAX');
+        }
+    }
+
+    addExperience(amount) {
+        this.experience += amount;
+        this.updateExperienceBar();
+    }
+
     onPlayerHitImp(player, imp) {
         if (this.gameOver) return;
 
@@ -340,10 +449,13 @@ export class Start extends Phaser.Scene {
         this.lastShotTime = 0;
         this.lastBoomerangTime = 0;
         this.lastBigBoomTime = 0;
+        this.experience = 0;
+        this.level = 1;
 
         // Update UI
         this.scoreText.setText('Score: 0');
         this.updateHealthBar();
+        this.updateExperienceBar();
 
         // Remove game over text
         if (this.gameOverText) {
@@ -599,6 +711,9 @@ export class Start extends Phaser.Scene {
         this.score += 1;
         this.scoreText.setText('Score: ' + this.score);
         
+        // Add experience points (10 per imp)
+        this.addExperience(10);
+        
         // Update spawn delay based on new score
         this.currentSpawnDelay = this.calculateSpawnDelay();
         this.spawnTimer.delay = this.currentSpawnDelay;
@@ -620,6 +735,9 @@ export class Start extends Phaser.Scene {
         this.score += 1;
         this.scoreText.setText('Score: ' + this.score);
         
+        // Add experience points (10 per imp)
+        this.addExperience(10);
+        
         // Update spawn delay based on new score
         this.currentSpawnDelay = this.calculateSpawnDelay();
         this.spawnTimer.delay = this.currentSpawnDelay;
@@ -640,6 +758,9 @@ export class Start extends Phaser.Scene {
         // Update score
         this.score += 1;
         this.scoreText.setText('Score: ' + this.score);
+        
+        // Add experience points (10 per imp)
+        this.addExperience(10);
         
         // Update spawn delay based on new score
         this.currentSpawnDelay = this.calculateSpawnDelay();
