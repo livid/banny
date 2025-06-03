@@ -24,6 +24,7 @@ export class Start extends Phaser.Scene {
         
         // Power-up tracking
         this.bigBoomCount = 0; // Number of big booms to fire at once (0-5)
+        this.bulletScale = 1.0; // Bullet size scale (1.0 - 4.0)
         this.showingPowerUpDialog = false;
     }
 
@@ -40,6 +41,7 @@ export class Start extends Phaser.Scene {
         this.level = 1;
         this.boomerangCount = 0;
         this.bigBoomCount = 0;
+        this.bulletScale = 1.0;
         this.showingPowerUpDialog = false;
     }
 
@@ -98,6 +100,7 @@ export class Start extends Phaser.Scene {
         const tileset = map.addTilesetImage("Desert Tileset", 'desert-tiles');
         const groundLayer = map.createLayer('Ground', tileset, 0, 0);
         const collisionLayer = map.createLayer('Collision', tileset, 0, 0);
+        const treesLayer = map.createLayer('Trees', tileset, 0, 0);
         
         // Set collision on tiles that have the 'collides' property set to true in Tiled
         collisionLayer.setCollisionByProperty({ collides: true });
@@ -443,6 +446,7 @@ export class Start extends Phaser.Scene {
         const newFireRateMs = Math.max(100, this.fireRate - 50);
         const boomerangCount = this.boomerangCount;
         const bigBoomCount = this.bigBoomCount;
+        const bulletScale = this.bulletScale;
         
         // Create available power-up options
         let optionIndex = 1;
@@ -460,6 +464,12 @@ export class Start extends Phaser.Scene {
         // Show big boom option only if not at max (5) 
         if (bigBoomCount < 5) {
             this.createPowerUpOption(optionIndex++, 'Extra Big Boom', `Big Booms: ${bigBoomCount} → ${Math.min(5, bigBoomCount + 1)}`, 3);
+        }
+        
+        // Show bullet size option only if not at max (4.0x scale)
+        if (bulletScale < 4.0) {
+            const newBulletScale = Math.min(4.0, bulletScale + 0.25);
+            this.createPowerUpOption(optionIndex++, 'Bigger Bullets', `Bullet size: ${bulletScale.toFixed(2)}x → ${newBulletScale.toFixed(2)}x`, 4);
         }
     }
     
@@ -539,6 +549,9 @@ export class Start extends Phaser.Scene {
             case 3:
                 keyCode = Phaser.Input.Keyboard.KeyCodes.THREE;
                 break;
+            case 4:
+                keyCode = Phaser.Input.Keyboard.KeyCodes.FOUR;
+                break;
         }
         
         const key = this.input.keyboard.addKey(keyCode);
@@ -561,6 +574,10 @@ export class Start extends Phaser.Scene {
             case 3:
                 // Extra Big Boom
                 this.bigBoomCount = Math.min(5, this.bigBoomCount + 1);
+                break;
+            case 4:
+                // Bigger Bullets
+                this.bulletScale = Math.min(4.0, this.bulletScale + 0.25);
                 break;
         }
         
@@ -693,6 +710,7 @@ export class Start extends Phaser.Scene {
         this.fireRate = this.selectedCharacter ? this.selectedCharacter.fireRate : 500;
         this.boomerangCount = this.selectedCharacter ? (this.selectedCharacter.boomerang || 0) : 0;
         this.bigBoomCount = this.selectedCharacter ? (this.selectedCharacter.bigBoom || 0) : 0;
+        this.bulletScale = 1.0;
         this.showingPowerUpDialog = false;
 
         // Update UI
@@ -800,6 +818,7 @@ export class Start extends Phaser.Scene {
 
         const bullet = this.bullets.create(this.player.x, this.player.y, 'blue-explosion');
         bullet.setFrame(0);  // Use first frame as bullet
+        bullet.setScale(this.bulletScale); // Apply bullet scale power-up
         
         const nearestImp = this.findNearestImp();
         let angle;
