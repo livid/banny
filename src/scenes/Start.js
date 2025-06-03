@@ -21,6 +21,10 @@ export class Start extends Phaser.Scene {
         // Big Boom properties
         this.lastBigBoomTime = 0;
         this.bigBoomCooldown = 5000; // 5 seconds
+        
+        // Power-up tracking
+        this.bigBoomCount = 1; // Number of big booms to fire at once
+        this.showingPowerUpDialog = false;
     }
 
     init() {
@@ -34,6 +38,8 @@ export class Start extends Phaser.Scene {
         this.lastBigBoomTime = 0;
         this.experience = 0;
         this.level = 1;
+        this.bigBoomCount = 1;
+        this.showingPowerUpDialog = false;
     }
 
     preload() {
@@ -356,6 +362,9 @@ export class Start extends Phaser.Scene {
                                       this.selectedCharacter.fireRate < 600 ? 'Medium' : 'Slow';
                 this.characterInfoText.setText(`Character: ${this.selectedCharacter.name}\nLevel: ${this.level}\nFire Rate: ${fireRateDisplay}`);
             }
+            
+            // Show power-up selection dialog on level up
+            this.showPowerUpDialog();
         }
         
         const progressPercent = expForNextLevel > 0 ? currentLevelProgress / expForNextLevel : 1;
@@ -373,6 +382,204 @@ export class Start extends Phaser.Scene {
     addExperience(amount) {
         this.experience += amount;
         this.updateExperienceBar();
+    }
+
+    showPowerUpDialog() {
+        if (this.showingPowerUpDialog) return;
+        
+        // Don't show dialog if at max level (level 20)
+        if (this.level >= 20) return;
+        
+        this.showingPowerUpDialog = true;
+        this.physics.pause(); // Pause the game
+        
+        // Create semi-transparent overlay
+        this.powerUpOverlay = this.add.rectangle(
+            this.cameras.main.centerX, 
+            this.cameras.main.centerY, 
+            this.cameras.main.width, 
+            this.cameras.main.height, 
+            0x000000, 
+            0.7
+        );
+        this.powerUpOverlay.setScrollFactor(0);
+        this.powerUpOverlay.setDepth(2000);
+        
+        // Create dialog box
+        this.powerUpDialog = this.add.rectangle(
+            this.cameras.main.centerX, 
+            this.cameras.main.centerY, 
+            400, 
+            300, 
+            0x333333
+        );
+        this.powerUpDialog.setScrollFactor(0);
+        this.powerUpDialog.setDepth(2001);
+        this.powerUpDialog.setStrokeStyle(4, 0xffffff);
+        
+        // Title
+        this.powerUpTitle = this.add.text(
+            this.cameras.main.centerX, 
+            this.cameras.main.centerY - 120, 
+            'LEVEL UP!\nChoose a Power-Up:', 
+            {
+                fontSize: '24px',
+                fill: '#ffffff',
+                align: 'center'
+            }
+        );
+        this.powerUpTitle.setOrigin(0.5);
+        this.powerUpTitle.setScrollFactor(0);
+        this.powerUpTitle.setDepth(2002);
+        
+        // Power-up options
+        const currentFireRateMs = this.fireRate;
+        const newFireRateMs = Math.max(50, Math.floor(this.fireRate * 0.9));
+        const boomerangCount = this.boomerangCount;
+        const bigBoomCount = this.bigBoomCount;
+        
+        this.createPowerUpOption(1, 'Attack Speed +10%', `Fire rate: ${currentFireRateMs}ms → ${newFireRateMs}ms`);
+        this.createPowerUpOption(2, 'Extra Boomerang', `Boomerangs: ${boomerangCount} → ${Math.min(5, boomerangCount + 1)}`);
+        this.createPowerUpOption(3, 'Extra Big Boom', `Big Booms: ${bigBoomCount} → ${Math.min(5, bigBoomCount + 1)}`);
+    }
+    
+    createPowerUpOption(index, title, description) {
+        const y = this.cameras.main.centerY - 40 + (index - 1) * 60;
+        
+        // Option background
+        const optionBg = this.add.rectangle(
+            this.cameras.main.centerX, 
+            y, 
+            350, 
+            50, 
+            0x555555
+        );
+        optionBg.setScrollFactor(0);
+        optionBg.setDepth(2001);
+        optionBg.setStrokeStyle(2, 0x888888);
+        optionBg.setInteractive();
+        
+        // Option text
+        const optionText = this.add.text(
+            this.cameras.main.centerX, 
+            y - 8, 
+            `${index}. ${title}`, 
+            {
+                fontSize: '18px',
+                fill: '#ffffff',
+                fontStyle: 'bold'
+            }
+        );
+        optionText.setOrigin(0.5);
+        optionText.setScrollFactor(0);
+        optionText.setDepth(2002);
+        
+        // Description text
+        const descText = this.add.text(
+            this.cameras.main.centerX, 
+            y + 12, 
+            description, 
+            {
+                fontSize: '12px',
+                fill: '#cccccc'
+            }
+        );
+        descText.setOrigin(0.5);
+        descText.setScrollFactor(0);
+        descText.setDepth(2002);
+        
+        // Store references for cleanup
+        if (!this.powerUpElements) this.powerUpElements = [];
+        if (!this.powerUpKeys) this.powerUpKeys = [];
+        this.powerUpElements.push(optionBg, optionText, descText);
+        
+        // Add hover effects
+        optionBg.on('pointerover', () => {
+            optionBg.setFillStyle(0x666666);
+        });
+        
+        optionBg.on('pointerout', () => {
+            optionBg.setFillStyle(0x555555);
+        });
+        
+        // Add click handler
+        optionBg.on('pointerdown', () => {
+            this.selectPowerUp(index);
+        });
+        
+        // Add keyboard input and store reference for cleanup
+        let keyCode;
+        switch(index) {
+            case 1:
+                keyCode = Phaser.Input.Keyboard.KeyCodes.ONE;
+                break;
+            case 2:
+                keyCode = Phaser.Input.Keyboard.KeyCodes.TWO;
+                break;
+            case 3:
+                keyCode = Phaser.Input.Keyboard.KeyCodes.THREE;
+                break;
+        }
+        
+        const key = this.input.keyboard.addKey(keyCode);
+        key.on('down', () => {
+            this.selectPowerUp(index);
+        });
+        this.powerUpKeys.push(key);
+    }
+    
+    selectPowerUp(powerUpIndex) {
+        switch(powerUpIndex) {
+            case 1:
+                // Attack Speed +10%
+                this.fireRate = Math.max(50, Math.floor(this.fireRate * 0.9));
+                break;
+            case 2:
+                // Extra Boomerang
+                this.boomerangCount = Math.min(5, this.boomerangCount + 1);
+                break;
+            case 3:
+                // Extra Big Boom
+                this.bigBoomCount = Math.min(5, this.bigBoomCount + 1);
+                break;
+        }
+        
+        this.hidePowerUpDialog();
+    }
+    
+    hidePowerUpDialog() {
+        this.showingPowerUpDialog = false;
+        this.physics.resume(); // Resume the game
+        
+        // Clean up dialog elements
+        if (this.powerUpOverlay) {
+            this.powerUpOverlay.destroy();
+            this.powerUpOverlay = null;
+        }
+        
+        if (this.powerUpDialog) {
+            this.powerUpDialog.destroy();
+            this.powerUpDialog = null;
+        }
+        
+        if (this.powerUpTitle) {
+            this.powerUpTitle.destroy();
+            this.powerUpTitle = null;
+        }
+        
+        if (this.powerUpElements) {
+            this.powerUpElements.forEach(element => element.destroy());
+            this.powerUpElements = [];
+        }
+        
+        // Remove only power-up specific keyboard listeners
+        if (this.powerUpKeys) {
+            this.powerUpKeys.forEach(key => {
+                key.removeAllListeners();
+                this.input.keyboard.removeKey(key);
+            });
+            this.powerUpKeys = [];
+        }
     }
 
     onPlayerHitImp(player, imp) {
@@ -451,6 +658,12 @@ export class Start extends Phaser.Scene {
         this.lastBigBoomTime = 0;
         this.experience = 0;
         this.level = 1;
+        
+        // Reset power-ups
+        this.fireRate = this.selectedCharacter ? this.selectedCharacter.fireRate : 500;
+        this.boomerangCount = 3;
+        this.bigBoomCount = 1;
+        this.showingPowerUpDialog = false;
 
         // Update UI
         this.scoreText.setText('Score: 0');
@@ -619,29 +832,32 @@ export class Start extends Phaser.Scene {
 
         this.lastBigBoomTime = currentTime;
 
-        // Random angle around player
-        const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
-        const distance = 300;
-        
-        // Calculate position 200 pixels from player
-        const x = this.player.x + Math.cos(angle) * distance;
-        const y = this.player.y + Math.sin(angle) * distance;
+        // Fire multiple big booms based on power-up
+        for (let i = 0; i < this.bigBoomCount; i++) {
+            // Random angle around player
+            const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+            const distance = 300;
+            
+            // Calculate position around player
+            const x = this.player.x + Math.cos(angle) * distance;
+            const y = this.player.y + Math.sin(angle) * distance;
 
-        const bigBoom = this.bigBooms.create(x, y, 'big-boom');
-        bigBoom.setScale(8);
-        
-        // Set random rotation before playing animation
-        bigBoom.setRotation(Phaser.Math.FloatBetween(0, Math.PI * 2));
-        
-        bigBoom.play('big-boom');
-        
-        // Set up collision radius (larger than visual for better gameplay)
-        bigBoom.body.setSize(32, 32); // 32 * 4 scale = 128 base size
-        
-        // Remove after animation completes
-        bigBoom.once('animationcomplete', () => {
-            bigBoom.destroy();
-        });
+            const bigBoom = this.bigBooms.create(x, y, 'big-boom');
+            bigBoom.setScale(8);
+            
+            // Set random rotation before playing animation
+            bigBoom.setRotation(Phaser.Math.FloatBetween(0, Math.PI * 2));
+            
+            bigBoom.play('big-boom');
+            
+            // Set up collision radius (larger than visual for better gameplay)
+            bigBoom.body.setSize(32, 32); // 32 * 4 scale = 128 base size
+            
+            // Remove after animation completes
+            bigBoom.once('animationcomplete', () => {
+                bigBoom.destroy();
+            });
+        }
     }
 
     updateBoomerangs() {
@@ -781,7 +997,7 @@ export class Start extends Phaser.Scene {
     }
 
     update() {
-        if (this.gameOver) return;
+        if (this.gameOver || this.showingPowerUpDialog) return;
         
         // Clean up out-of-bounds bullets
         this.cleanupBullets();
