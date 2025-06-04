@@ -51,9 +51,8 @@ export class Start extends Phaser.Scene {
         this.load.image('desert-tiles', 'assets/maps/Desert Tileset.png');
         this.load.tilemapTiledJSON('desert-map', 'assets/maps/Desert.json');
         
-        // Load character images
-        this.load.image('jango', 'assets/characters/jango.png');
-        this.load.image('peri', 'assets/characters/peri.png');
+        // Load characters data 
+        this.load.json('characters-data', 'assets/characters/characters.json');
 
         // Load monster
         this.load.spritesheet('imp_red_walk', 'assets/monsters/imp_red_walk.png', { frameWidth: 50, frameHeight: 48 });
@@ -77,6 +76,37 @@ export class Start extends Phaser.Scene {
     }
 
     create() {
+        // Load character images dynamically if not already loaded
+        const charactersData = this.cache.json.get('characters-data').characters;
+        const imagesToLoad = [];
+        
+        charactersData.forEach(character => {
+            const imageKey = character.image.replace('.png', '');
+            if (!this.textures.exists(imageKey)) {
+                imagesToLoad.push({ key: imageKey, path: `assets/characters/${character.image}` });
+            }
+        });
+        
+        // If there are images to load, load them before continuing
+        if (imagesToLoad.length > 0) {
+            let loadedCount = 0;
+            imagesToLoad.forEach(image => {
+                this.load.image(image.key, image.path);
+                this.load.on(`filecomplete-image-${image.key}`, () => {
+                    loadedCount++;
+                    if (loadedCount === imagesToLoad.length) {
+                        this.initializeGame();
+                    }
+                });
+            });
+            this.load.start();
+        } else {
+            // All images already loaded, proceed immediately
+            this.initializeGame();
+        }
+    }
+    
+    initializeGame() {
         // Get selected character data
         this.selectedCharacter = this.registry.get('selectedCharacter');
         if (this.selectedCharacter) {

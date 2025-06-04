@@ -23,12 +23,8 @@ export class CharacterSelection extends Phaser.Scene {
     }
 
     preload() {
-        // Load characters data
+        // Load characters data first
         this.load.json('characters-data', 'assets/characters/characters.json');
-        
-        // Load character images
-        this.load.image('jango', 'assets/characters/jango.png');
-        this.load.image('peri', 'assets/characters/peri.png');
         
         // Load background music if not already loaded
         if (!this.cache.audio.exists('background-music')) {
@@ -40,6 +36,35 @@ export class CharacterSelection extends Phaser.Scene {
         // Load characters data
         this.charactersData = this.cache.json.get('characters-data').characters;
         
+        // Load character images dynamically based on characters data
+        const imagesToLoad = [];
+        this.charactersData.forEach(character => {
+            const imageKey = character.image.replace('.png', '');
+            if (!this.textures.exists(imageKey)) {
+                imagesToLoad.push({ key: imageKey, path: `assets/characters/${character.image}` });
+            }
+        });
+        
+        // If there are images to load, load them before continuing
+        if (imagesToLoad.length > 0) {
+            let loadedCount = 0;
+            imagesToLoad.forEach(image => {
+                this.load.image(image.key, image.path);
+                this.load.on(`filecomplete-image-${image.key}`, () => {
+                    loadedCount++;
+                    if (loadedCount === imagesToLoad.length) {
+                        this.initializeScene();
+                    }
+                });
+            });
+            this.load.start();
+        } else {
+            // All images already loaded, proceed immediately
+            this.initializeScene();
+        }
+    }
+    
+    initializeScene() {
         // Debug: log the characters data
         console.log('Loaded characters:', this.charactersData);
         
