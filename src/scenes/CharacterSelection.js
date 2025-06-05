@@ -338,13 +338,11 @@ export class CharacterSelection extends Phaser.Scene {
             charSprite.setScale(0.25);
             this.characterSprites.push(charSprite);
 
-            // Character name (truncated if too long)
-            let displayName = character.name;
-            if (displayName.length > 15) {
-                displayName = displayName.substring(0, 12) + '...';
-            }
+            // Character name (use smaller font for longer names)
+            const displayName = character.name;
+            const fontSize = displayName.length > 12 ? '14px' : '18px';
             const nameText = this.add.text(x, y + 50, displayName, {
-                fontSize: '18px',
+                fontSize: fontSize,
                 fill: '#ffffff',
                 stroke: '#000000',
                 strokeThickness: 1
