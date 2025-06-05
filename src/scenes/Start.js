@@ -241,10 +241,6 @@ export class Start extends Phaser.Scene {
                 this.scene.start('CharacterSelection');
             }
         });
-        this.input.on('pointerdown', () => this.shootBullet());
-
-        // Add space key for continuous input
-        this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
 
         // Create sound effects
         this.laserSound = this.sound.add('laser', { volume: 0.05 });
@@ -1139,10 +1135,8 @@ export class Start extends Phaser.Scene {
         // Auto-shoot Big Boom every 5 seconds
         this.shootBigBoom();
         
-        // Continuous shooting while space is held
-        if (this.spaceKey.isDown) {
-            this.shootBullet();
-        }
+        // Auto-fire bullets continuously
+        this.shootBullet();
         
         // Player movement with W, A, S, D keys
         if (this.cursors.left.isDown || this.input.keyboard.checkDown(this.input.keyboard.addKey('A'))) {
