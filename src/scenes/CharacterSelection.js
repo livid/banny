@@ -68,6 +68,9 @@ export class CharacterSelection extends Phaser.Scene {
         // Load characters data first
         this.load.json('characters-data', 'assets/characters/characters.json');
         
+        // Load background image
+        this.load.image('space-background', 'assets/bgs/space.png');
+        
         // Load background music if not already loaded
         if (!this.cache.audio.exists('background-music')) {
             this.load.audio('background-music', 'assets/music/twilight-of-the-dead.mp3');
@@ -112,6 +115,11 @@ export class CharacterSelection extends Phaser.Scene {
     initializeScene() {
         // Debug: log the characters data
         console.log('Loaded characters:', this.charactersData);
+        
+        // Add background image
+        const background = this.add.image(this.cameras.main.centerX, this.cameras.main.centerY, 'space-background');
+        background.setDisplaySize(this.cameras.main.width, this.cameras.main.height);
+        background.setDepth(-1); // Ensure it's behind everything else
         
         // Add title
         this.titleText = this.add.text(this.cameras.main.centerX, 80, 'SELECT CHARACTER', {
