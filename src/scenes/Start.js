@@ -5,7 +5,7 @@ export class Start extends Phaser.Scene {
         this.score = 0;
         this.lastShotTime = 0;
         this.fireRate = 500; // Default, will be overridden by character data
-        this.currentSpawnDelay = 1000; // Start with 1 second delay
+        this.currentSpawnDelay = 500; // Start with 0.5 second delay
         this.health = 100; // Player health
         this.maxHealth = 100;
         this.gameOver = false;
@@ -34,7 +34,7 @@ export class Start extends Phaser.Scene {
         this.score = 0;
         this.health = this.maxHealth;
         this.gameOver = false;
-        this.currentSpawnDelay = 1000;
+        this.currentSpawnDelay = 500;
         this.lastShotTime = 0;
         this.lastBoomerangTime = 0;
         this.lastBigBoomTime = 0;
@@ -767,7 +767,7 @@ export class Start extends Phaser.Scene {
         this.score = 0;
         this.health = this.maxHealth;
         this.gameOver = false;
-        this.currentSpawnDelay = 1000;
+        this.currentSpawnDelay = 500;
         this.lastShotTime = 0;
         this.lastBoomerangTime = 0;
         this.lastBigBoomTime = 0;
@@ -1029,11 +1029,11 @@ export class Start extends Phaser.Scene {
     }
 
     calculateSpawnDelay() {
-        // Gradually reduce delay from 1000ms to 200ms based on score
-        // At score 0: 1000ms, at score 100+: 200ms
-        const minDelay = 200;
-        const maxDelay = 1000;
-        const scoreThreshold = 100; // Score needed to reach minimum delay
+        // Gradually reduce delay from 500ms to 50ms based on score
+        // At score 0: 500ms, at score 500+: 10ms
+        const minDelay = 10;
+        const maxDelay = 500;
+        const scoreThreshold = 500; // Score needed to reach minimum delay
         
         const progress = Math.min(this.score / scoreThreshold, 1);
         return Math.max(minDelay, maxDelay - (maxDelay - minDelay) * progress);
