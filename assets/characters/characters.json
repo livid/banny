@@ -1,18 +1,610 @@
-{
-    "characters": [
-        {
-            "name": "jango.eth",
-            "image": "jango.png",
-            "fireRate": 500,
-            "boomerang": 1,
-            "bigBoom": 0
-        },
-        {
-            "name": "peri.eth",
-            "image": "peri.png",
-            "fireRate": 400,
-            "boomerang": 0,
-            "bigBoom": 1
-        }
-    ]
-}
+[
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "42161-4000000009",
+    "image": "42161-4000000009-0x57a482ea32c7f75a9c0734206f5bd4f9bcb38e12.png",
+    "name": "vonhagel.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "1-3000000007",
+    "image": "1-3000000007-0x1786d033d5cbcc235b673e872c7613c2f83da583.png",
+    "name": "nirbhik.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "1-4000000080",
+    "image": "1-4000000080-0xdfd60a8e1e17fbb78e8ca332906a822d862f3d57.png",
+    "name": "joshuab.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "1-4000000076",
+    "image": "1-4000000076-0xaecd6d9172d602b93dba3981991268b44af8096e.png",
+    "name": "kianga.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "8453-4000000003",
+    "image": "8453-4000000003-0xf7253a0e87e39d2cd6365919d4a3d56d431d0041.png",
+    "name": "zeugh.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "8453-2000000001",
+    "image": "8453-2000000001-0xf7253a0e87e39d2cd6365919d4a3d56d431d0041.png",
+    "name": "zeugh.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "1-4000000046",
+    "image": "1-4000000046-0x95e9a0c113aa9931a4230f91ade08a491d3f8d54.png",
+    "name": "cupodelegate.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "1-4000000045",
+    "image": "1-4000000045-0x95e9a0c113aa9931a4230f91ade08a491d3f8d54.png",
+    "name": "cupodelegate.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "1-4000000047",
+    "image": "1-4000000047-0x95e9a0c113aa9931a4230f91ade08a491d3f8d54.png",
+    "name": "cupodelegate.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "1-4000000044",
+    "image": "1-4000000044-0x95e9a0c113aa9931a4230f91ade08a491d3f8d54.png",
+    "name": "cupodelegate.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "1-4000000043",
+    "image": "1-4000000043-0x95e9a0c113aa9931a4230f91ade08a491d3f8d54.png",
+    "name": "cupodelegate.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "1-4000000079",
+    "image": "1-4000000079-0x2feb329b9289b60064904fa61fc347157a5aed6a.png",
+    "name": "zimardrp.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "8453-4000000082",
+    "image": "8453-4000000082-0x8dfbdeec8c5d4970bb5f481c6ec7f73fa1c65be5.png",
+    "name": "ionoi.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "1-2000000006",
+    "image": "1-2000000006-0x5dee86b297755b3f2ce65e09ba3a700579a9020b.png",
+    "name": "0x5dee...020b"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "8453-4000000085",
+    "image": "8453-4000000085-0x39a7b6fa1597bb6657fe84e64e3b836c37d6f75d.png",
+    "name": "r4topunk.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "8453-4000000084",
+    "image": "8453-4000000084-0xfd37f4625ca5816157d55a5b3f7dd8dd5f8a0c2f.png",
+    "name": "maggo.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "8453-2000000003",
+    "image": "8453-2000000003-0xfd37f4625ca5816157d55a5b3f7dd8dd5f8a0c2f.png",
+    "name": "maggo.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "1-4000000078",
+    "image": "1-4000000078-0xaaed9fff9858d48925904e391b77892ba5fda824.png",
+    "name": "fcarva.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "1-3000000026",
+    "image": "1-3000000026-0x823b92d6a4b2aed4b15675c7917c9f922ea8adad.png",
+    "name": "jango.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "1-4000000060",
+    "image": "1-4000000060-0x823b92d6a4b2aed4b15675c7917c9f922ea8adad.png",
+    "name": "jango.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "8453-3000000008",
+    "image": "8453-3000000008-0x28c173b8f20488eef1b0f48df8453a2f59c38337.png",
+    "name": "0xstvg.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "1-3000000023",
+    "image": "1-3000000023-0x823b92d6a4b2aed4b15675c7917c9f922ea8adad.png",
+    "name": "jango.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "1-2000000004",
+    "image": "1-2000000004-0xaecd6d9172d602b93dba3981991268b44af8096e.png",
+    "name": "kianga.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "1-4000000057",
+    "image": "1-4000000057-0xa99c384f43e72b65bb51fe33b85ce12a32c09526.png",
+    "name": "strathmckay.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "8453-3000000007",
+    "image": "8453-3000000007-0xdf087b724174a3e4ed2338c0798193932e851f1b.png",
+    "name": "0xdf08...1f1b"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "1-4000000056",
+    "image": "1-4000000056-0x34724d71ce674fcd4d06e60dd1baa88c14d36b75.png",
+    "name": "zombae.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "1-4000000055",
+    "image": "1-4000000055-0x60535a6605958fff6cec5b1e92892601efb3473b.png",
+    "name": "0xgogo.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "8453-4000000081",
+    "image": "8453-4000000081-0x6877be9e00d0bc5886c28419901e8cc98c1c2739.png",
+    "name": "nnnnicholas.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "1-3000000022",
+    "image": "1-3000000022-0x7d0068d0d8fc2aa15d897448b348fa9b30f6d4c9.png",
+    "name": "kenbot.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "1-4000000054",
+    "image": "1-4000000054-0x30670d81e487c80b9edc54370e6eaf943b6eab39.png",
+    "name": "filipv.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "1-1000000001",
+    "image": "1-1000000001-0xaecd6d9172d602b93dba3981991268b44af8096e.png",
+    "name": "kianga.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "8453-4000000080",
+    "image": "8453-4000000080-0x3c2736f995535b5a755f3ce2beb754362820671e.png",
+    "name": "0x3c27...671e"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "42161-4000000007",
+    "image": "42161-4000000007-0xb2d3900807094d4fe47405871b0c8adb58e10d42.png",
+    "name": "ryand2d.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "1-4000000052",
+    "image": "1-4000000052-0x80581c6e88ce00095f85cdf24bb760f16d6ec0d6.png",
+    "name": "namedotget.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "1-2000000005",
+    "image": "1-2000000005-0x45c3d8aacc0d537dac234ad4c20ef05d6041cefe.png",
+    "name": "0x45c3...cefe"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "1-4000000041",
+    "image": "1-4000000041-0x823b92d6a4b2aed4b15675c7917c9f922ea8adad.png",
+    "name": "jango.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "8453-4000000073",
+    "image": "8453-4000000073-0x224aba5d489675a7bd3ce07786fada466b46fa0f.png",
+    "name": "santteegt.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "8453-4000000079",
+    "image": "8453-4000000079-0x8b80755c441d355405ca7571443bb9247b77ec16.png",
+    "name": "kmacb.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "8453-3000000006",
+    "image": "8453-3000000006-0xaaed9fff9858d48925904e391b77892ba5fda824.png",
+    "name": "fcarva.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "8453-4000000001",
+    "image": "8453-4000000001-0x817738dc393d682ca5fbb268707b99f2aae96bae.png",
+    "name": "testinginprod.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "1-4000000048",
+    "image": "1-4000000048-0xf32dd1bd55bd14d929218499a2e7d106f72f79c7.png",
+    "name": "jacopo.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "10-3000000001",
+    "image": "10-3000000001-0x25910143c255828f623786f46fe9a8941b7983bb.png",
+    "name": "jigglyjams.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "42161-4000000005",
+    "image": "42161-4000000005-0x187089b33e5812310ed32a57f53b3fad0383a19d.png",
+    "name": "0x1870...a19d"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "42161-4000000004",
+    "image": "42161-4000000004-0x9fdf876a50ea8f95017dcfc7709356887025b5bb.png",
+    "name": "mitchmcquinn.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "1-2000000002",
+    "image": "1-2000000002-0x63a2368f4b509438ca90186cb1c15156713d5834.png",
+    "name": "peri.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "42161-4000000003",
+    "image": "42161-4000000003-0x08b3e694caa2f1fcf8ef71095ced1326f3454b89.png",
+    "name": "jaderiverstokes.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "1-4000000040",
+    "image": "1-4000000040-0x849151d7d0bf1f34b70d5cad5149d28cc2308bf1.png",
+    "name": "jesse.xyz"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "1-4000000039",
+    "image": "1-4000000039-0x381cc779761212344f8400373a994d29e17522c6.png",
+    "name": "0xxtinct.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "1-3000000017",
+    "image": "1-3000000017-0x08cf1208e638a5a3623be58d600e35c6199baa9c.png",
+    "name": "patternbase.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "8453-4000000054",
+    "image": "8453-4000000054-0xc5704f77f94087cc644d361a5a57295851d242ab.png",
+    "name": "anonunicornio.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "8453-3000000003",
+    "image": "8453-3000000003-0x96d087aba8552a0e111d7fb4feb2e7621213e244.png",
+    "name": "jesusof.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "8453-4000000060",
+    "image": "8453-4000000060-0x96d087aba8552a0e111d7fb4feb2e7621213e244.png",
+    "name": "jesusof.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "1-4000000033",
+    "image": "1-4000000033-0x5a00e8683f37e8b08c744054a0ef606a18b1aef7.png",
+    "name": "0x5a00...aef7"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "1-3000000013",
+    "image": "1-3000000013-0x6a099bb96ddf3963d5addcabdc0221914cf80b1f.png",
+    "name": "oscarurrutia.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "1-4000000023",
+    "image": "1-4000000023-0x7be8c264c9dceba3a35990c78d5c4220d8724b6e.png",
+    "name": "afox.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "8453-4000000049",
+    "image": "8453-4000000049-0xacd59e854adf632d2322404198624f757c868c97.png",
+    "name": "groweco.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "1-3000000011",
+    "image": "1-3000000011-0x0cb1d93daec77df2ed7db31c040fd2174452bd9f.png",
+    "name": "garrafada.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "1-3000000010",
+    "image": "1-3000000010-0x0b2c9e0ee3057f4b9b0c2e42894a3d5a9b32b5af.png",
+    "name": "0x0b2c...b5af"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "8453-3000000002",
+    "image": "8453-3000000002-0x4718ce007293bce1e514887e6f55ea71d9a992d6.png",
+    "name": "steadydrift.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "8453-2000000002",
+    "image": "8453-2000000002-0x565b93a15d38acd79c120b15432d21e21ed274d6.png",
+    "name": "flynnjamm.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "1-4000000019",
+    "image": "1-4000000019-0x77fb4fa1aba92576942ad34bc47834059b84e693.png",
+    "name": "kevincharm.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "1-3000000009",
+    "image": "1-3000000009-0xe16a238d207b9ac8b419c7a866b0de013c73357b.png",
+    "name": "aeolian.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "1-4000000016",
+    "image": "1-4000000016-0x809c9f8dd8ca93a41c3adca4972fa234c28f7714.png",
+    "name": "paul2.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "1-3000000006",
+    "image": "1-3000000006-0x1c51517d8277c9ad6d701fb5394cec0c18219edb.png",
+    "name": "grahamnovak.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "1-4000000015",
+    "image": "1-4000000015-0x76a6d08b82034b397e7e09dae4377c18f132bbb8.png",
+    "name": "netto.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "8453-3000000001",
+    "image": "8453-3000000001-0x25171bd3cd3231c3057c96f38e32e3ba6681497a.png",
+    "name": "0x2517...497a"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "8453-4000000050",
+    "image": "8453-4000000050-0xa13d49fcbf79eaf6a0a58cbdd3361422db4eaff1.png",
+    "name": "nakedfool.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "1-4000000014",
+    "image": "1-4000000014-0xa7226e53f3100c093a0a5bcb6e3d0976eb3db1d6.png",
+    "name": "alzuru.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "10-4000000001",
+    "image": "10-4000000001-0xa7a5a2745f10d5c23d75a6fd228a408cede1cae5.png",
+    "name": "spengrah.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "1-3000000003",
+    "image": "1-3000000003-0x516cafd745ec780d20f61c0d71fe258ea765222d.png",
+    "name": "nintynick.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "42161-3000000001",
+    "image": "42161-3000000001-0x2aa64e6d80390f5c017f0313cb908051be2fd35e.png",
+    "name": "afo.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "8453-4000000048",
+    "image": "8453-4000000048-0xacd59e854adf632d2322404198624f757c868c97.png",
+    "name": "groweco.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "1-4000000010",
+    "image": "1-4000000010-0x679d87d8640e66778c3419d164998e720d7495f6.png",
+    "name": "pmoncada.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "1-4000000009",
+    "image": "1-4000000009-0x5706d5ad7a68bf8692bd341234be44ca7bf2f654.png",
+    "name": "zhape.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "8453-4000000045",
+    "image": "8453-4000000045-0x67bcbe602e870e2286c19e4e0044e583967c9665.png",
+    "name": "zook.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "nft_id": "1-3000000001",
+    "image": "1-3000000001-0x817738dc393d682ca5fbb268707b99f2aae96bae.png",
+    "name": "testinginprod.eth"
+  }
+]
