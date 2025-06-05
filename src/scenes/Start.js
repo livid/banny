@@ -241,7 +241,11 @@ export class Start extends Phaser.Scene {
         this.enterKey.on('down', () => {
             if (this.gameOver) {
                 console.log('Game over detected, switching to character selection...');
-                this.scene.start('CharacterSelection');
+                
+                // Add a small delay to ensure proper cleanup
+                this.time.delayedCall(100, () => {
+                    this.scene.start('CharacterSelection');
+                });
             }
         });
 

@@ -24,6 +24,9 @@ export class CharacterSelection extends Phaser.Scene {
         this.keyRepeatDelay = 500; // Initial delay before repeat starts (ms)
         this.keyRepeatRate = 150; // Rate of repeat (ms between repeats)
         this.currentHeldKey = null;
+        // Static text objects
+        this.titleText = null;
+        this.instructionsText = null;
     }
 
     init() {
@@ -39,6 +42,25 @@ export class CharacterSelection extends Phaser.Scene {
         // Reset key repeat state
         this.keyRepeatTimer = null;
         this.currentHeldKey = null;
+        
+        // Clear any existing text objects to prevent canvas context issues
+        if (this.pageText) {
+            this.pageText.destroy();
+            this.pageText = null;
+        }
+        if (this.debugText) {
+            this.debugText.destroy();
+            this.debugText = null;
+        }
+        if (this.titleText) {
+            this.titleText.destroy();
+            this.titleText = null;
+        }
+        if (this.instructionsText) {
+            this.instructionsText.destroy();
+            this.instructionsText = null;
+        }
+        
         console.log('CharacterSelection scene initialized');
     }
 
@@ -92,7 +114,7 @@ export class CharacterSelection extends Phaser.Scene {
         console.log('Loaded characters:', this.charactersData);
         
         // Add title
-        this.add.text(this.cameras.main.centerX, 80, 'SELECT CHARACTER', {
+        this.titleText = this.add.text(this.cameras.main.centerX, 80, 'SELECT CHARACTER', {
             fontSize: '48px',
             fill: '#ffffff',
             stroke: '#000000',
@@ -103,7 +125,7 @@ export class CharacterSelection extends Phaser.Scene {
         this.createCharacterGrid();
 
         // Add instructions
-        this.add.text(this.cameras.main.centerX, this.cameras.main.height - 100, 'Use ARROW KEYS to navigate • Q/E for pages • ENTER to select', {
+        this.instructionsText = this.add.text(this.cameras.main.centerX, this.cameras.main.height - 100, 'Use ARROW KEYS to navigate • Q/E for pages • ENTER to select', {
             fontSize: '20px',
             fill: '#ffffff',
             stroke: '#000000',
@@ -425,7 +447,7 @@ export class CharacterSelection extends Phaser.Scene {
     }
 
     updatePageText() {
-        if (this.pageText) {
+        if (this.pageText && this.pageText.scene && this.charactersData) {
             this.pageText.setText(`Page ${this.currentPage + 1} of ${this.totalPages} (${this.charactersData.length} characters total)`);
         }
     }
@@ -434,7 +456,7 @@ export class CharacterSelection extends Phaser.Scene {
         console.log(`Updating selection to index: ${this.selectedIndex}`);
         
         // Update debug text
-        if (this.debugText && this.charactersData) {
+        if (this.debugText && this.debugText.scene && this.charactersData) {
             const character = this.charactersData[this.selectedIndex];
             this.debugText.setText(`Selected: ${this.selectedIndex} (${character?.name || 'Unknown'}) - Page ${this.currentPage + 1}/${this.totalPages}`);
         }
@@ -488,6 +510,35 @@ export class CharacterSelection extends Phaser.Scene {
     shutdown() {
         // Clean up key repeat timer
         this.stopKeyRepeat();
+        
+        // Clean up text objects to prevent canvas context issues
+        if (this.pageText) {
+            this.pageText.destroy();
+            this.pageText = null;
+        }
+        if (this.debugText) {
+            this.debugText.destroy();
+            this.debugText = null;
+        }
+        if (this.titleText) {
+            this.titleText.destroy();
+            this.titleText = null;
+        }
+        if (this.instructionsText) {
+            this.instructionsText.destroy();
+            this.instructionsText = null;
+        }
+        
+        // Clean up character grid elements
+        this.characterSprites.forEach(sprite => sprite.destroy());
+        this.characterFrames.forEach(frame => frame.destroy());
+        this.nameTexts.forEach(text => text.destroy());
+        this.statsTexts.forEach(text => text.destroy());
+        
+        this.characterSprites = [];
+        this.characterFrames = [];
+        this.nameTexts = [];
+        this.statsTexts = [];
         
         // Clean up cursor keys
         if (this.cursors) {
