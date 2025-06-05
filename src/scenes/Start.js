@@ -77,7 +77,7 @@ export class Start extends Phaser.Scene {
 
     create() {
         // Load character images dynamically if not already loaded
-        const charactersData = this.cache.json.get('characters-data').characters;
+        const charactersData = this.cache.json.get('characters-data');
         const imagesToLoad = [];
         
         charactersData.forEach(character => {
@@ -114,17 +114,19 @@ export class Start extends Phaser.Scene {
             this.boomerangCount = this.selectedCharacter.boomerang || 0;
             this.bigBoomCount = this.selectedCharacter.bigBoom || 0;
         } else {
-            // Fallback to default character if none selected
-            this.selectedCharacter = {
-                name: "jango.eth",
-                image: "jango.png",
+            // Fallback to first character from data if none selected
+            const charactersData = this.cache.json.get('characters-data');
+            this.selectedCharacter = charactersData[0] || {
+                name: "vonhagel.eth",
+                image: "42161-4000000009-0x57a482ea32c7f75a9c0734206f5bd4f9bcb38e12.png",
                 fireRate: 500,
-                boomerang: 1,
-                bigBoom: 0
+                boomerang: 0,
+                bigBoom: 0,
+                nft_id: "42161-4000000009"
             };
-            this.fireRate = 500;
-            this.boomerangCount = 1;
-            this.bigBoomCount = 0;
+            this.fireRate = this.selectedCharacter.fireRate;
+            this.boomerangCount = this.selectedCharacter.boomerang || 0;
+            this.bigBoomCount = this.selectedCharacter.bigBoom || 0;
         }
 
         const map = this.make.tilemap({ key: 'desert-map', tileWidth: 24, tileHeight: 24 });
@@ -141,15 +143,15 @@ export class Start extends Phaser.Scene {
         this.physics.world.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
         this.cameras.main.setZoom(1);
         
-        // Use selected character sprite or default to jango
-        const characterSprite = this.selectedCharacter ? this.selectedCharacter.image.replace('.png', '') : 'jango';
+        // Use selected character sprite or default to first character
+        const characterSprite = this.selectedCharacter ? this.selectedCharacter.image.replace('.png', '') : '42161-4000000009-0x57a482ea32c7f75a9c0734206f5bd4f9bcb38e12';
         this.player = this.physics.add.sprite(640, 360, characterSprite);
         this.player.setCollideWorldBounds(true);
-        this.player.setScale(1);
+        this.player.setScale(0.3);
         
         // Adjust player collision bounds to 50% of sprite size
-        const playerWidth = this.player.width * 0.75;
-        const playerHeight = this.player.height * 0.99;
+        const playerWidth = this.player.width * 0.35;
+        const playerHeight = this.player.height * 0.8;
         this.player.body.setSize(playerWidth, playerHeight);
         
         this.cameras.main.startFollow(this.player, true, 0.05, 0.05);
@@ -238,6 +240,7 @@ export class Start extends Phaser.Scene {
         this.enterKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
         this.enterKey.on('down', () => {
             if (this.gameOver) {
+                console.log('Game over detected, switching to character selection...');
                 this.scene.start('CharacterSelection');
             }
         });
@@ -720,14 +723,17 @@ export class Start extends Phaser.Scene {
             console.log('Keeping background music playing');
         }
         
+        // Clean up enter key only when shutting down
         if (this.enterKey) {
             this.enterKey.removeAllListeners();
+            this.enterKey = null;
         }
         console.log('Start scene shutdown');
     }
 
     triggerGameOver() {
         this.gameOver = true;
+        console.log('Game over triggered, gameOver flag set to:', this.gameOver);
         
         // Stop spawning imps
         this.spawnTimer.destroy();
@@ -1121,7 +1127,17 @@ export class Start extends Phaser.Scene {
     }
 
     update() {
-        if (this.gameOver || this.showingPowerUpDialog) return;
+        if (this.showingPowerUpDialog) return;
+        
+        // Handle game over state
+        if (this.gameOver) {
+            // Check for Enter key press to return to character selection
+            if (this.enterKey && Phaser.Input.Keyboard.JustDown(this.enterKey)) {
+                console.log('Enter key detected in game over state, switching to character selection...');
+                this.scene.start('CharacterSelection');
+            }
+            return; // Don't process game logic when game is over
+        }
         
         // Clean up out-of-bounds bullets
         this.cleanupBullets();

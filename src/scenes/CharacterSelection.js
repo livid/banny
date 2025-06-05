@@ -10,6 +10,20 @@ export class CharacterSelection extends Phaser.Scene {
         this.cursors = null;
         this.enterKey = null;
         this.debugText = null;
+        // Grid layout properties
+        this.gridCols = 4;
+        this.gridRows = 2;
+        this.charactersPerPage = this.gridCols * this.gridRows;
+        this.currentPage = 0;
+        this.totalPages = 0;
+        this.pageText = null;
+        this.selectedCol = 0;
+        this.selectedRow = 0;
+        // Key repeat functionality
+        this.keyRepeatTimer = null;
+        this.keyRepeatDelay = 500; // Initial delay before repeat starts (ms)
+        this.keyRepeatRate = 150; // Rate of repeat (ms between repeats)
+        this.currentHeldKey = null;
     }
 
     init() {
@@ -19,6 +33,12 @@ export class CharacterSelection extends Phaser.Scene {
         this.characterFrames = [];
         this.nameTexts = [];
         this.statsTexts = [];
+        this.currentPage = 0;
+        this.selectedCol = 0;
+        this.selectedRow = 0;
+        // Reset key repeat state
+        this.keyRepeatTimer = null;
+        this.currentHeldKey = null;
         console.log('CharacterSelection scene initialized');
     }
 
@@ -34,7 +54,10 @@ export class CharacterSelection extends Phaser.Scene {
 
     create() {
         // Load characters data
-        this.charactersData = this.cache.json.get('characters-data').characters;
+        this.charactersData = this.cache.json.get('characters-data');
+        
+        // Calculate total pages
+        this.totalPages = Math.ceil(this.charactersData.length / this.charactersPerPage);
         
         // Load character images dynamically based on characters data
         const imagesToLoad = [];
@@ -80,9 +103,17 @@ export class CharacterSelection extends Phaser.Scene {
         this.createCharacterGrid();
 
         // Add instructions
-        this.add.text(this.cameras.main.centerX, this.cameras.main.height - 60, 'Use ARROW KEYS to navigate • ENTER to select', {
-            fontSize: '24px',
+        this.add.text(this.cameras.main.centerX, this.cameras.main.height - 100, 'Use ARROW KEYS to navigate • Q/E for pages • ENTER to select', {
+            fontSize: '20px',
             fill: '#ffffff',
+            stroke: '#000000',
+            strokeThickness: 2
+        }).setOrigin(0.5, 0.5);
+
+        // Add page indicator
+        this.pageText = this.add.text(this.cameras.main.centerX, this.cameras.main.height - 60, '', {
+            fontSize: '18px',
+            fill: '#ffff00',
             stroke: '#000000',
             strokeThickness: 2
         }).setOrigin(0.5, 0.5);
@@ -96,11 +127,13 @@ export class CharacterSelection extends Phaser.Scene {
         });
         this.debugText.setScrollFactor(0);
 
-        // Set up input - use only cursor keys for simplicity
+        // Set up input - use cursor keys and page navigation
         this.cursors = this.input.keyboard.createCursorKeys();
         this.enterKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
+        this.pageLeftKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Q);
+        this.pageRightKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
         
-        console.log('Setting up keyboard input with cursor keys and ENTER');
+        console.log('Setting up keyboard input with cursor keys, Q/E for pages, and ENTER');
 
         // Ensure background music is playing
         let globalBackgroundMusic = this.registry.get('backgroundMusic');
@@ -127,60 +160,170 @@ export class CharacterSelection extends Phaser.Scene {
 
     update() {
         // Handle input in update loop for more reliable detection
-        // Only process input if cursors and enterKey have been initialized
+        // Only process input if keys have been initialized
         if (!this.cursors || !this.enterKey) {
             return;
         }
         
-        if (Phaser.Input.Keyboard.JustDown(this.cursors.left)) {
-            console.log('Left arrow pressed');
-            this.moveSelection(-1);
+        // Handle arrow key navigation with repeat support
+        this.handleKeyNavigation();
+        
+        // Handle page navigation (Q/E keys)
+        if (Phaser.Input.Keyboard.JustDown(this.pageLeftKey)) {
+            console.log('Q pressed - previous page');
+            this.changePage(-1);
         }
-        if (Phaser.Input.Keyboard.JustDown(this.cursors.right)) {
-            console.log('Right arrow pressed');
-            this.moveSelection(1);
+        if (Phaser.Input.Keyboard.JustDown(this.pageRightKey)) {
+            console.log('E pressed - next page');
+            this.changePage(1);
         }
+        
+        // Handle character selection
         if (Phaser.Input.Keyboard.JustDown(this.enterKey)) {
             console.log('Enter key pressed - selecting character');
             this.selectCharacter();
         }
     }
 
+    handleKeyNavigation() {
+        let keyPressed = null;
+        let deltaCol = 0;
+        let deltaRow = 0;
+
+        // Check which arrow key is currently pressed
+        if (this.cursors.left.isDown) {
+            keyPressed = 'left';
+            deltaCol = -1;
+        } else if (this.cursors.right.isDown) {
+            keyPressed = 'right';
+            deltaCol = 1;
+        } else if (this.cursors.up.isDown) {
+            keyPressed = 'up';
+            deltaRow = -1;
+        } else if (this.cursors.down.isDown) {
+            keyPressed = 'down';
+            deltaRow = 1;
+        }
+
+        if (keyPressed) {
+            // If this is a new key press or different key
+            if (this.currentHeldKey !== keyPressed) {
+                this.currentHeldKey = keyPressed;
+                // Move immediately on first press
+                this.moveSelection(deltaCol, deltaRow);
+                
+                // Clear any existing timer
+                if (this.keyRepeatTimer) {
+                    this.keyRepeatTimer.destroy();
+                }
+                
+                // Start repeat timer
+                this.keyRepeatTimer = this.time.delayedCall(this.keyRepeatDelay, () => {
+                    this.startKeyRepeat(deltaCol, deltaRow);
+                });
+            }
+        } else {
+            // No arrow key is pressed, stop repeat
+            this.stopKeyRepeat();
+        }
+    }
+
+    startKeyRepeat(deltaCol, deltaRow) {
+        // Clear existing repeat timer
+        if (this.keyRepeatTimer) {
+            this.keyRepeatTimer.destroy();
+        }
+        
+        // Create repeating timer
+        this.keyRepeatTimer = this.time.addEvent({
+            delay: this.keyRepeatRate,
+            callback: () => {
+                // Only continue if the key is still held down
+                if (this.currentHeldKey && this.isKeyStillDown()) {
+                    this.moveSelection(deltaCol, deltaRow);
+                } else {
+                    this.stopKeyRepeat();
+                }
+            },
+            loop: true
+        });
+    }
+
+    isKeyStillDown() {
+        switch (this.currentHeldKey) {
+            case 'left': return this.cursors.left.isDown;
+            case 'right': return this.cursors.right.isDown;
+            case 'up': return this.cursors.up.isDown;
+            case 'down': return this.cursors.down.isDown;
+            default: return false;
+        }
+    }
+
+    stopKeyRepeat() {
+        if (this.keyRepeatTimer) {
+            this.keyRepeatTimer.destroy();
+            this.keyRepeatTimer = null;
+        }
+        this.currentHeldKey = null;
+    }
+
     createCharacterGrid() {
-        const spacing = 300;
-        const totalWidth = (this.charactersData.length - 1) * spacing;
-        const startX = this.cameras.main.centerX - totalWidth / 2;
-        const startY = this.cameras.main.centerY;
+        // Clear existing sprites and frames
+        this.characterSprites.forEach(sprite => sprite.destroy());
+        this.characterFrames.forEach(frame => frame.destroy());
+        this.nameTexts.forEach(text => text.destroy());
+        this.statsTexts.forEach(text => text.destroy());
+        
+        this.characterSprites = [];
+        this.characterFrames = [];
+        this.nameTexts = [];
+        this.statsTexts = [];
 
-        this.charactersData.forEach((character, index) => {
-            const x = startX + index * spacing;
-            const y = startY;
+        // Calculate grid layout for 4x2 (8 characters per page)
+        const cellWidth = 220;
+        const cellHeight = 250;
+        const gridWidth = this.gridCols * cellWidth;
+        const gridHeight = this.gridRows * cellHeight;
+        const startX = this.cameras.main.centerX - gridWidth / 2 + cellWidth / 2;
+        const startY = this.cameras.main.centerY - gridHeight / 2 + cellHeight / 2;
 
-            // Create character frame (background)
-            const frame = this.add.rectangle(x, y, 200, 280, 0x333333);
-            frame.setStrokeStyle(4, 0x666666);
+        // Get characters for current page
+        const startIndex = this.currentPage * this.charactersPerPage;
+        const endIndex = Math.min(startIndex + this.charactersPerPage, this.charactersData.length);
+        const pageCharacters = this.charactersData.slice(startIndex, endIndex);
+
+        pageCharacters.forEach((character, index) => {
+            const col = index % this.gridCols;
+            const row = Math.floor(index / this.gridCols);
+            const x = startX + col * cellWidth;
+            const y = startY + row * cellHeight;
+
+            // Create character frame (background) - larger for 8 per page
+            const frame = this.add.rectangle(x, y, 200, 220, 0x333333);
+            frame.setStrokeStyle(3, 0x666666);
             this.characterFrames.push(frame);
 
-            // Load and display character image
-            const charSprite = this.add.image(x, y - 40, character.image.replace('.png', ''));
-            charSprite.setScale(2);
+            // Load and display character image (400x400 -> 100x100)
+            const charSprite = this.add.image(x, y - 30, character.image.replace('.png', ''));
+            charSprite.setScale(0.25);
             this.characterSprites.push(charSprite);
 
-            // Character name
-            const nameText = this.add.text(x, y + 60, character.name, {
-                fontSize: '24px',
+            // Character name (truncated if too long)
+            let displayName = character.name;
+            if (displayName.length > 15) {
+                displayName = displayName.substring(0, 12) + '...';
+            }
+            const nameText = this.add.text(x, y + 50, displayName, {
+                fontSize: '18px',
                 fill: '#ffffff',
                 stroke: '#000000',
-                strokeThickness: 2
+                strokeThickness: 1
             }).setOrigin(0.5, 0.5);
             this.nameTexts.push(nameText);
 
-            // Character stats - show fire rate in a more user-friendly way
-            const fireRateDisplay = character.fireRate < 200 ? 'Very Fast' : 
-                                  character.fireRate < 400 ? 'Fast' : 
-                                  character.fireRate < 600 ? 'Medium' : 'Slow';
-            const statsText = this.add.text(x, y + 90, `Fire Rate: ${fireRateDisplay}\n(${character.fireRate}ms)`, {
-                fontSize: '16px',
+            // Character stats - show name and NFT ID
+            const statsText = this.add.text(x, y + 75, `${character.nft_id}`, {
+                fontSize: '12px',
                 fill: '#cccccc',
                 stroke: '#000000',
                 strokeThickness: 1,
@@ -188,13 +331,103 @@ export class CharacterSelection extends Phaser.Scene {
             }).setOrigin(0.5, 0.5);
             this.statsTexts.push(statsText);
         });
+
+        // Update page text
+        this.updatePageText();
     }
 
-    moveSelection(direction) {
-        console.log(`Moving selection: current=${this.selectedIndex}, direction=${direction}`);
-        this.selectedIndex = Phaser.Math.Wrap(this.selectedIndex + direction, 0, this.charactersData.length);
-        console.log(`New selection: ${this.selectedIndex}`);
-        this.updateSelection();
+    moveSelection(deltaCol, deltaRow) {
+        const newCol = this.selectedCol + deltaCol;
+        const newRow = this.selectedRow + deltaRow;
+        
+        // Check for page navigation when reaching edges
+        if (newCol < 0) {
+            // Moving left from leftmost column - go to previous page, rightmost column
+            if (this.changePage(-1)) {
+                this.selectedCol = this.gridCols - 1;
+                this.selectedRow = Math.min(this.selectedRow, this.getLastRowOnPage());
+                this.selectedIndex = this.currentPage * this.charactersPerPage + this.selectedRow * this.gridCols + this.selectedCol;
+                this.updateSelection();
+            }
+            return;
+        }
+        
+        if (newCol >= this.gridCols) {
+            // Moving right from rightmost column - go to next page, leftmost column
+            if (this.changePage(1)) {
+                this.selectedCol = 0;
+                this.selectedRow = Math.min(this.selectedRow, this.getLastRowOnPage());
+                this.selectedIndex = this.currentPage * this.charactersPerPage + this.selectedRow * this.gridCols + this.selectedCol;
+                this.updateSelection();
+            }
+            return;
+        }
+        
+        if (newRow < 0) {
+            // Moving up from top row - go to previous page, bottom row
+            if (this.changePage(-1)) {
+                this.selectedCol = Math.min(this.selectedCol, this.getLastColOnPage());
+                this.selectedRow = this.getLastRowOnPage();
+                this.selectedIndex = this.currentPage * this.charactersPerPage + this.selectedRow * this.gridCols + this.selectedCol;
+                this.updateSelection();
+            }
+            return;
+        }
+        
+        if (newRow >= this.gridRows) {
+            // Moving down from bottom row - go to next page, top row
+            if (this.changePage(1)) {
+                this.selectedCol = Math.min(this.selectedCol, this.getLastColOnPage());
+                this.selectedRow = 0;
+                this.selectedIndex = this.currentPage * this.charactersPerPage + this.selectedRow * this.gridCols + this.selectedCol;
+                this.updateSelection();
+            }
+            return;
+        }
+        
+        // Normal movement within current page
+        const newIndex = newRow * this.gridCols + newCol;
+        const startIndex = this.currentPage * this.charactersPerPage;
+        const pageCharacterCount = Math.min(this.charactersPerPage, this.charactersData.length - startIndex);
+        
+        // Only move if the new position has a character
+        if (newIndex < pageCharacterCount) {
+            this.selectedCol = newCol;
+            this.selectedRow = newRow;
+            this.selectedIndex = startIndex + newIndex;
+            console.log(`New grid position: col=${this.selectedCol}, row=${this.selectedRow}, index=${this.selectedIndex}`);
+            this.updateSelection();
+        }
+    }
+    
+    getLastRowOnPage() {
+        const startIndex = this.currentPage * this.charactersPerPage;
+        const pageCharacterCount = Math.min(this.charactersPerPage, this.charactersData.length - startIndex);
+        return Math.floor((pageCharacterCount - 1) / this.gridCols);
+    }
+    
+    getLastColOnPage() {
+        const startIndex = this.currentPage * this.charactersPerPage;
+        const pageCharacterCount = Math.min(this.charactersPerPage, this.charactersData.length - startIndex);
+        const lastRowStartIndex = Math.floor((pageCharacterCount - 1) / this.gridCols) * this.gridCols;
+        return (pageCharacterCount - 1) - lastRowStartIndex;
+    }
+
+    changePage(direction) {
+        const newPage = this.currentPage + direction;
+        if (newPage >= 0 && newPage < this.totalPages) {
+            this.currentPage = newPage;
+            console.log(`Changed to page ${this.currentPage + 1}/${this.totalPages}`);
+            this.createCharacterGrid();
+            return true; // Successfully changed page
+        }
+        return false; // Could not change page (at boundary)
+    }
+
+    updatePageText() {
+        if (this.pageText) {
+            this.pageText.setText(`Page ${this.currentPage + 1} of ${this.totalPages} (${this.charactersData.length} characters total)`);
+        }
     }
 
     updateSelection() {
@@ -202,27 +435,31 @@ export class CharacterSelection extends Phaser.Scene {
         
         // Update debug text
         if (this.debugText && this.charactersData) {
-            this.debugText.setText(`Selected: ${this.selectedIndex} (${this.charactersData[this.selectedIndex]?.name || 'Unknown'})`);
+            const character = this.charactersData[this.selectedIndex];
+            this.debugText.setText(`Selected: ${this.selectedIndex} (${character?.name || 'Unknown'}) - Page ${this.currentPage + 1}/${this.totalPages}`);
         }
+        
+        // Calculate local index on current page
+        const localIndex = this.selectedIndex - (this.currentPage * this.charactersPerPage);
         
         // Reset all frames
         this.characterFrames.forEach((frame, index) => {
-            if (index === this.selectedIndex) {
-                frame.setStrokeStyle(4, 0xffff00); // Highlight selected
+            if (index === localIndex) {
+                frame.setStrokeStyle(3, 0xffff00); // Highlight selected
                 frame.setFillStyle(0x444444);
-                console.log(`Highlighting frame ${index}`);
+                console.log(`Highlighting frame ${index} (global index ${this.selectedIndex})`);
             } else {
-                frame.setStrokeStyle(4, 0x666666);
+                frame.setStrokeStyle(3, 0x666666);
                 frame.setFillStyle(0x333333);
             }
         });
 
-        // Scale selected character
+        // Scale selected character (100x100 base, slightly larger when selected)
         this.characterSprites.forEach((sprite, index) => {
-            if (index === this.selectedIndex) {
-                sprite.setScale(2.2);
+            if (index === localIndex) {
+                sprite.setScale(0.3); // 120x120 when selected
             } else {
-                sprite.setScale(2);
+                sprite.setScale(0.25); // 100x100 normal
             }
         });
     }
@@ -249,12 +486,21 @@ export class CharacterSelection extends Phaser.Scene {
     }
 
     shutdown() {
+        // Clean up key repeat timer
+        this.stopKeyRepeat();
+        
         // Clean up cursor keys
         if (this.cursors) {
             this.cursors = null;
         }
         if (this.enterKey) {
             this.enterKey = null;
+        }
+        if (this.pageLeftKey) {
+            this.pageLeftKey = null;
+        }
+        if (this.pageRightKey) {
+            this.pageRightKey = null;
         }
         console.log('CharacterSelection scene shutdown');
     }
