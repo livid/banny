@@ -127,6 +127,11 @@ export class CharacterSelection extends Phaser.Scene {
 
     update() {
         // Handle input in update loop for more reliable detection
+        // Only process input if cursors and enterKey have been initialized
+        if (!this.cursors || !this.enterKey) {
+            return;
+        }
+        
         if (Phaser.Input.Keyboard.JustDown(this.cursors.left)) {
             console.log('Left arrow pressed');
             this.moveSelection(-1);
