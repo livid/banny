@@ -1,0 +1,50 @@
+{
+    "Desert": {
+        "name": "Desert",
+        "tiledJson": {
+            "key": "desert-map",
+            "file": "Desert.json"
+        },
+        "tilesets": [
+            {
+                "key": "desert-tiles",
+                "name": "Desert Tileset",
+                "file": "Desert Tileset.png"
+            }
+        ],
+        "layers": [
+            {
+                "name": "Ground",
+                "collision": false
+            },
+            {
+                "name": "Collision",
+                "collision": true
+            },
+            {
+                "name": "Trees",
+                "collision": false
+            }
+        ]
+    },
+    "Maze": {
+        "name": "Maze",
+        "tiledJson": {
+            "key": "maze-map",
+            "file": "Maze.json"
+        },
+        "tilesets": [
+            {
+                "key": "dungeon-tiles",
+                "name": "Dungeon Tileset",
+                "file": "Dungeon Tileset.png"
+            }
+        ],
+        "layers": [
+            {
+                "name": "Ground",
+                "collision": true
+            }
+        ]
+    }
+}
