@@ -27,6 +27,10 @@ export class Start extends Phaser.Scene {
         this.bulletScale = 1.0; // Bullet size scale (1.0 - 4.0)
         this.bulletSizeUpgradeCount = 0; // Track number of bullet size upgrades
         this.showingPowerUpDialog = false;
+        
+        // Map selection
+        this.selectedMap = null; // Will store selected map data
+        this.currentMapLayers = []; // Track created layers for collision setup
     }
 
     init() {
@@ -44,16 +48,15 @@ export class Start extends Phaser.Scene {
         this.bigBoomCount = 0;
         this.bulletScale = 1.0;
         this.showingPowerUpDialog = false;
+        
+        // Reset map selection for new game
+        this.selectedMap = null;
+        this.currentMapLayers = [];
     }
 
     preload() {
-        // Load desert map
-        this.load.image('desert-tiles', 'assets/maps/Desert Tileset.png');
-        this.load.tilemapTiledJSON('desert-map', 'assets/maps/Desert.json');
-
-        // Load dunegon map
-        this.load.image('dungeon-tiles', 'assets/maps/Dungeon Tileset.png');
-        this.load.tilemapTiledJSON('maze-map', 'assets/maps/Maze.json');
+        // Load maps configuration
+        this.load.json('maps-data', 'assets/maps/maps.json');
         
         // Load characters data 
         this.load.json('characters-data', 'assets/characters/characters.json');
@@ -80,6 +83,34 @@ export class Start extends Phaser.Scene {
     }
 
     create() {
+        // Load map assets first, then character images
+        this.loadMapAssets();
+    }
+    
+    loadMapAssets() {
+        // Randomly select a map
+        const mapsData = this.cache.json.get('maps-data');
+        const mapNames = Object.keys(mapsData);
+        const randomMapName = Phaser.Utils.Array.GetRandom(mapNames);
+        this.selectedMap = mapsData[randomMapName];
+        
+        console.log('Selected map:', this.selectedMap.name);
+        
+        // Load map tilesets and JSON
+        const tilesToLoad = [];
+        
+        // Load tilesets
+        this.selectedMap.tilesets.forEach(tileset => {
+            if (!this.textures.exists(tileset.key)) {
+                tilesToLoad.push({ key: tileset.key, path: `assets/maps/${tileset.file}` });
+            }
+        });
+        
+        // Load tilemap JSON
+        if (!this.cache.tilemap.exists(this.selectedMap.tiledJson.key)) {
+            this.load.tilemapTiledJSON(this.selectedMap.tiledJson.key, `assets/maps/${this.selectedMap.tiledJson.file}`);
+        }
+        
         // Load character images dynamically if not already loaded
         const charactersData = this.cache.json.get('characters-data');
         const imagesToLoad = [];
@@ -91,21 +122,38 @@ export class Start extends Phaser.Scene {
             }
         });
         
-        // If there are images to load, load them before continuing
-        if (imagesToLoad.length > 0) {
+        // Combine all assets to load
+        const allAssetsToLoad = [...tilesToLoad, ...imagesToLoad];
+        
+        // If there are assets to load, load them before continuing
+        if (allAssetsToLoad.length > 0 || !this.cache.tilemap.exists(this.selectedMap.tiledJson.key)) {
             let loadedCount = 0;
-            imagesToLoad.forEach(image => {
-                this.load.image(image.key, image.path);
-                this.load.on(`filecomplete-image-${image.key}`, () => {
+            const totalToLoad = allAssetsToLoad.length + (this.cache.tilemap.exists(this.selectedMap.tiledJson.key) ? 0 : 1);
+            
+            // Load tileset images
+            allAssetsToLoad.forEach(asset => {
+                this.load.image(asset.key, asset.path);
+                this.load.on(`filecomplete-image-${asset.key}`, () => {
                     loadedCount++;
-                    if (loadedCount === imagesToLoad.length) {
+                    if (loadedCount === totalToLoad) {
                         this.initializeGame();
                     }
                 });
             });
+            
+            // Load tilemap JSON if needed
+            if (!this.cache.tilemap.exists(this.selectedMap.tiledJson.key)) {
+                this.load.on(`filecomplete-tilemapJSON-${this.selectedMap.tiledJson.key}`, () => {
+                    loadedCount++;
+                    if (loadedCount === totalToLoad) {
+                        this.initializeGame();
+                    }
+                });
+            }
+            
             this.load.start();
         } else {
-            // All images already loaded, proceed immediately
+            // All assets already loaded, proceed immediately
             this.initializeGame();
         }
     }
@@ -133,19 +181,32 @@ export class Start extends Phaser.Scene {
             this.bigBoomCount = this.selectedCharacter.bigBoom || 0;
         }
 
-        // Set up the map
-        /* Desert:
-        const map = this.make.tilemap({ key: 'desert-map', tileWidth: 24, tileHeight: 24 });
-        const tileset = map.addTilesetImage("Desert Tileset", 'desert-tiles');
-        const groundLayer = map.createLayer('Ground', tileset, 0, 0);
-        const collisionLayer = map.createLayer('Collision', tileset, 0, 0);
-        const treesLayer = map.createLayer('Trees', tileset, 0, 0);
-        */
-        // Dungeon:
-        const map = this.make.tilemap({ key: 'maze-map', tileWidth: 24, tileHeight: 24 });
-        const tileset = map.addTilesetImage("Dungeon Tileset", 'dungeon-tiles');
-        const groundLayer = map.createLayer('Ground', tileset, 0, 0);
-        groundLayer.setCollisionByProperty({ collides: true });
+        // Set up the map dynamically
+        const map = this.make.tilemap({ key: this.selectedMap.tiledJson.key, tileWidth: 24, tileHeight: 24 });
+        
+        // Add tilesets
+        const tilesets = [];
+        this.selectedMap.tilesets.forEach(tilesetData => {
+            const tileset = map.addTilesetImage(tilesetData.name, tilesetData.key);
+            tilesets.push(tileset);
+        });
+        
+        // Create layers and track them for collision setup
+        this.currentMapLayers = [];
+        this.selectedMap.layers.forEach(layerData => {
+            const layer = map.createLayer(layerData.name, tilesets, 0, 0);
+            if (layer) {
+                this.currentMapLayers.push({
+                    layer: layer,
+                    collision: layerData.collision
+                });
+                
+                // Set collision if specified
+                if (layerData.collision) {
+                    layer.setCollisionByProperty({ collides: true });
+                }
+            }
+        });
         
         // Set collision on tiles that have the 'collides' property set to true in Tiled
         // collisionLayer.setCollisionByProperty({ collides: true });
@@ -179,7 +240,7 @@ export class Start extends Phaser.Scene {
 
         // Add character info display
         if (this.selectedCharacter) {
-            this.characterInfoText = this.add.text(16, 56, `Character: ${this.selectedCharacter.name}\nLevel: 1\nFire Rate: ${this.fireRate}ms`, {
+            this.characterInfoText = this.add.text(16, 56, `Character: ${this.selectedCharacter.name}\nLevel: 1\nFire Rate: ${this.fireRate}ms\nMap: ${this.selectedMap.name}`, {
                 fontSize: '16px',
                 fill: '#ffffff',
                 stroke: '#000000',
@@ -244,9 +305,13 @@ export class Start extends Phaser.Scene {
         // Setup player-imp collision
         this.physics.add.overlap(this.player, this.imps, this.onPlayerHitImp, null, this);
 
-        // this.physics.add.collider(this.player, collisionLayer);
-        this.physics.add.collider(this.player, groundLayer);
-        // this.physics.add.collider(this.imps, collisionLayer);
+        // Setup collisions with map layers that have collision enabled
+        this.currentMapLayers.forEach(mapLayer => {
+            if (mapLayer.collision) {
+                this.physics.add.collider(this.player, mapLayer.layer);
+                this.physics.add.collider(this.imps, mapLayer.layer);
+            }
+        });
 
         // Setup input handlers
         this.enterKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
@@ -410,7 +475,7 @@ export class Start extends Phaser.Scene {
             this.level = currentLevel;
             // Update character info text to show new level
             if (this.selectedCharacter && this.characterInfoText) {
-                this.characterInfoText.setText(`Character: ${this.selectedCharacter.name}\nLevel: ${this.level}\nFire Rate: ${this.fireRate}ms`);
+                this.characterInfoText.setText(`Character: ${this.selectedCharacter.name}\nLevel: ${this.level}\nFire Rate: ${this.fireRate}ms\nMap: ${this.selectedMap.name}`);
             }
             
             // Show power-up selection dialog on level up
@@ -660,7 +725,7 @@ export class Start extends Phaser.Scene {
         
         // Update character info text to reflect new stats
         if (this.selectedCharacter && this.characterInfoText) {
-            this.characterInfoText.setText(`Character: ${this.selectedCharacter.name}\nLevel: ${this.level}\nFire Rate: ${this.fireRate}ms`);
+            this.characterInfoText.setText(`Character: ${this.selectedCharacter.name}\nLevel: ${this.level}\nFire Rate: ${this.fireRate}ms\nMap: ${this.selectedMap.name}`);
         }
         
         this.hidePowerUpDialog();
@@ -709,8 +774,10 @@ export class Start extends Phaser.Scene {
     onPlayerHitImp(player, imp) {
         if (this.gameOver) return;
 
-        // Play male hurt sound
-        this.maleHurtSound.play();
+        // Safety check: only play sound if it exists
+        if (this.maleHurtSound) {
+            this.maleHurtSound.play();
+        }
 
         // Damage player
         this.health = Math.max(0, this.health - 25);
@@ -886,6 +953,9 @@ export class Start extends Phaser.Scene {
     shootBullet() {
         if (this.gameOver) return;
         
+        // Safety check: only shoot if game is fully initialized
+        if (!this.bullets || !this.laserSound) return;
+        
         const currentTime = this.time.now;
         if (currentTime - this.lastShotTime < this.fireRate) {
             return; // Still in cooldown
@@ -926,6 +996,9 @@ export class Start extends Phaser.Scene {
     shootBoomerang() {
         if (this.gameOver) return;
         
+        // Safety check: only shoot if game is fully initialized
+        if (!this.boomerangs) return;
+        
         // Don't shoot if no boomerangs available
         if (this.boomerangCount <= 0) return;
         
@@ -962,6 +1035,9 @@ export class Start extends Phaser.Scene {
 
     shootBigBoom() {
         if (this.gameOver) return;
+        
+        // Safety check: only shoot if game is fully initialized
+        if (!this.bigBooms) return;
         
         // Don't shoot if no big booms available
         if (this.bigBoomCount <= 0) return;
@@ -1002,6 +1078,9 @@ export class Start extends Phaser.Scene {
     }
 
     updateBoomerangs() {
+        // Safety check: only update if boomerangs group exists
+        if (!this.boomerangs) return;
+        
         this.boomerangs.getChildren().forEach(boomerang => {
             // Rotate the boomerang
             boomerang.rotation += 0.3;
@@ -1052,8 +1131,10 @@ export class Start extends Phaser.Scene {
     }
 
     onBulletHitImp(bullet, imp) {
-        // Play hurt sound
-        this.hurtSound.play();
+        // Safety check: only play sound if it exists
+        if (this.hurtSound) {
+            this.hurtSound.play();
+        }
         
         const explosion = this.add.sprite(imp.x, imp.y, 'blue-explosion');
         explosion.play('explosion');
@@ -1082,8 +1163,10 @@ export class Start extends Phaser.Scene {
     }
 
     onBoomerangHitImp(boomerang, imp) {
-        // Play hurt sound
-        this.hurtSound.play();
+        // Safety check: only play sound if it exists
+        if (this.hurtSound) {
+            this.hurtSound.play();
+        }
         
         const explosion = this.add.sprite(imp.x, imp.y, 'blue-explosion');
         explosion.play('explosion');
@@ -1106,8 +1189,10 @@ export class Start extends Phaser.Scene {
     }
 
     onBigBoomHitImp(bigBoom, imp) {
-        // Play hurt sound
-        this.hurtSound.play();
+        // Safety check: only play sound if it exists
+        if (this.hurtSound) {
+            this.hurtSound.play();
+        }
         
         const explosion = this.add.sprite(imp.x, imp.y, 'blue-explosion');
         explosion.play('explosion');
@@ -1130,6 +1215,9 @@ export class Start extends Phaser.Scene {
     }
 
     cleanupBullets() {
+        // Safety check: only clean up if bullets group exists
+        if (!this.bullets) return;
+        
         this.bullets.getChildren().forEach(bullet => {
             // Check if bullet is far outside the world bounds
             const buffer = 100; // Extra buffer to ensure bullets are truly out of range
@@ -1169,6 +1257,9 @@ export class Start extends Phaser.Scene {
         
         // Auto-fire bullets continuously
         this.shootBullet();
+        
+        // Safety check: only process player movement if player and cursors exist
+        if (!this.player || !this.cursors) return;
         
         // Player movement with W, A, S, D keys
         if (this.cursors.left.isDown || this.input.keyboard.checkDown(this.input.keyboard.addKey('A'))) {
