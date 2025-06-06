@@ -50,6 +50,10 @@ export class Start extends Phaser.Scene {
         // Load desert map
         this.load.image('desert-tiles', 'assets/maps/Desert Tileset.png');
         this.load.tilemapTiledJSON('desert-map', 'assets/maps/Desert.json');
+
+        // Load dunegon map
+        this.load.image('dungeon-tiles', 'assets/maps/Dungeon Tileset.png');
+        this.load.tilemapTiledJSON('maze-map', 'assets/maps/Maze.json');
         
         // Load characters data 
         this.load.json('characters-data', 'assets/characters/characters.json');
@@ -129,14 +133,22 @@ export class Start extends Phaser.Scene {
             this.bigBoomCount = this.selectedCharacter.bigBoom || 0;
         }
 
+        // Set up the map
+        /* Desert:
         const map = this.make.tilemap({ key: 'desert-map', tileWidth: 24, tileHeight: 24 });
         const tileset = map.addTilesetImage("Desert Tileset", 'desert-tiles');
         const groundLayer = map.createLayer('Ground', tileset, 0, 0);
         const collisionLayer = map.createLayer('Collision', tileset, 0, 0);
         const treesLayer = map.createLayer('Trees', tileset, 0, 0);
+        */
+        // Dungeon:
+        const map = this.make.tilemap({ key: 'maze-map', tileWidth: 24, tileHeight: 24 });
+        const tileset = map.addTilesetImage("Dungeon Tileset", 'dungeon-tiles');
+        const groundLayer = map.createLayer('Ground', tileset, 0, 0);
+        groundLayer.setCollisionByProperty({ collides: true });
         
         // Set collision on tiles that have the 'collides' property set to true in Tiled
-        collisionLayer.setCollisionByProperty({ collides: true });
+        // collisionLayer.setCollisionByProperty({ collides: true });
                
         // add player to center of the screen
         this.cameras.main.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
@@ -232,9 +244,9 @@ export class Start extends Phaser.Scene {
         // Setup player-imp collision
         this.physics.add.overlap(this.player, this.imps, this.onPlayerHitImp, null, this);
 
-        this.physics.add.collider(this.player, collisionLayer);
-        
-        this.physics.add.collider(this.imps, collisionLayer);
+        // this.physics.add.collider(this.player, collisionLayer);
+        this.physics.add.collider(this.player, groundLayer);
+        // this.physics.add.collider(this.imps, collisionLayer);
 
         // Setup input handlers
         this.enterKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
