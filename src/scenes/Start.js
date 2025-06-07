@@ -28,6 +28,11 @@ export class Start extends Phaser.Scene {
         this.bulletSizeUpgradeCount = 0; // Track number of bullet size upgrades
         this.showingPowerUpDialog = false;
         
+        // Session timer
+        this.sessionStartTime = null;
+        this.sessionTimer = null;
+        this.sessionDuration = 0; // in seconds
+        
         // Map selection
         this.selectedMap = null; // Will store selected map data
         this.currentMapLayers = []; // Track created layers for collision setup
@@ -48,6 +53,14 @@ export class Start extends Phaser.Scene {
         this.bigBoomCount = 0;
         this.bulletScale = 1.0;
         this.showingPowerUpDialog = false;
+        
+        // Reset session timer
+        this.sessionStartTime = Date.now();
+        this.sessionDuration = 0;
+        if (this.sessionTimer) {
+            this.sessionTimer.destroy();
+            this.sessionTimer = null;
+        }
         
         // Reset map selection for new game
         this.selectedMap = null;
@@ -240,7 +253,7 @@ export class Start extends Phaser.Scene {
 
         // Add character info display
         if (this.selectedCharacter) {
-            this.characterInfoText = this.add.text(16, 56, `Character: ${this.selectedCharacter.name}\nLevel: 1\nFire Rate: ${this.fireRate}ms\nMap: ${this.selectedMap.name}`, {
+            this.characterInfoText = this.add.text(16, 56, this.getCharacterInfoText(), {
                 fontSize: '16px',
                 fill: '#ffffff',
                 stroke: '#000000',
@@ -249,6 +262,14 @@ export class Start extends Phaser.Scene {
             this.characterInfoText.setScrollFactor(0);
         }
 
+        // Start session timer that updates every second
+        this.sessionTimer = this.time.addEvent({
+            delay: 1000,
+            callback: this.updateSessionTimer,
+            callbackScope: this,
+            loop: true
+        });
+        
         // Add health bar
         this.createHealthBar();
 
@@ -361,6 +382,35 @@ export class Start extends Phaser.Scene {
             callbackScope: this,
             loop: true
         });
+
+        // Start session timer
+        this.sessionStartTime = this.time.now;
+        this.sessionTimer = this.time.addEvent({
+            delay: 1000, // 1 second
+            callback: this.updateSessionTime,
+            callbackScope: this,
+            loop: true
+        });
+    }
+
+    formatSessionTime() {
+        const minutes = Math.floor(this.sessionDuration / 60);
+        const seconds = this.sessionDuration % 60;
+        return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    }
+
+    getCharacterInfoText() {
+        if (!this.selectedCharacter) return '';
+        return `Character: ${this.selectedCharacter.name}\nSession: ${this.formatSessionTime()}\nLevel: ${this.level}\nFire Rate: ${this.fireRate}ms\nMap: ${this.selectedMap ? this.selectedMap.name : 'Loading...'}`;
+    }
+
+    updateSessionTimer() {
+        if (!this.gameOver) {
+            this.sessionDuration++;
+            if (this.characterInfoText) {
+                this.characterInfoText.setText(this.getCharacterInfoText());
+            }
+        }
     }
 
     createHealthBar() {
@@ -475,7 +525,7 @@ export class Start extends Phaser.Scene {
             this.level = currentLevel;
             // Update character info text to show new level
             if (this.selectedCharacter && this.characterInfoText) {
-                this.characterInfoText.setText(`Character: ${this.selectedCharacter.name}\nLevel: ${this.level}\nFire Rate: ${this.fireRate}ms\nMap: ${this.selectedMap.name}`);
+                this.characterInfoText.setText(this.getCharacterInfoText());
             }
             
             // Show power-up selection dialog on level up
@@ -725,7 +775,7 @@ export class Start extends Phaser.Scene {
         
         // Update character info text to reflect new stats
         if (this.selectedCharacter && this.characterInfoText) {
-            this.characterInfoText.setText(`Character: ${this.selectedCharacter.name}\nLevel: ${this.level}\nFire Rate: ${this.fireRate}ms\nMap: ${this.selectedMap.name}`);
+            this.characterInfoText.setText(this.getCharacterInfoText());
         }
         
         this.hidePowerUpDialog();
@@ -798,6 +848,12 @@ export class Start extends Phaser.Scene {
             this.spawnTimer.destroy();
         }
         
+        // Clean up session timer
+        if (this.sessionTimer) {
+            this.sessionTimer.destroy();
+            this.sessionTimer = null;
+        }
+        
         // Only stop background music if we're leaving the game completely
         // For character selection, keep music playing
         const globalBackgroundMusic = this.registry.get('backgroundMusic');
@@ -817,6 +873,12 @@ export class Start extends Phaser.Scene {
     triggerGameOver() {
         this.gameOver = true;
         console.log('Game over triggered, gameOver flag set to:', this.gameOver);
+        
+        // Stop session timer
+        if (this.sessionTimer) {
+            this.sessionTimer.destroy();
+            this.sessionTimer = null;
+        }
         
         // Stop spawning imps
         this.spawnTimer.destroy();
