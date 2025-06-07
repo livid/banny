@@ -586,6 +586,12 @@ export class CharacterSelection extends Phaser.Scene {
         
         // Small delay before transitioning to make selection feel responsive
         this.time.delayedCall(500, () => {
+            // Set transitioning flag on current Start scene if it exists
+            const currentStartScene = this.scene.get('Start');
+            if (currentStartScene && currentStartScene.scene.isActive()) {
+                currentStartScene.sceneTransitioning = true;
+            }
+            
             this.scene.start('Start');
         });
     }

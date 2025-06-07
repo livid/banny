@@ -6,8 +6,8 @@ export class Start extends Phaser.Scene {
         this.lastShotTime = 0;
         this.fireRate = 500; // Default, will be overridden by character data
         this.currentSpawnDelay = 500; // Start with 0.5 second delay
-        this.health = 100; // Player health
-        this.maxHealth = 100;
+        this.health = 100; // Player health - will be overridden by character data
+        this.maxHealth = 100; // Max health - will be overridden by character data
         this.gameOver = false;
         this.selectedCharacter = null; // Will store selected character data
         this.enterKey = null; // For game over input
@@ -36,13 +36,17 @@ export class Start extends Phaser.Scene {
         // Map selection
         this.selectedMap = null; // Will store selected map data
         this.currentMapLayers = []; // Track created layers for collision setup
+        
+        // Scene transition management
+        this.sceneTransitioning = false; // Flag to prevent updates during scene transitions
     }
 
     init() {
         // Reset game state when scene starts
         this.score = 0;
-        this.health = this.maxHealth;
+        // Don't reset health here - it will be set properly in initializeGame() based on character data
         this.gameOver = false;
+        this.sceneTransitioning = false; // Reset transition flag
         this.currentSpawnDelay = 500;
         this.lastShotTime = 0;
         this.lastBoomerangTime = 0;
@@ -178,20 +182,25 @@ export class Start extends Phaser.Scene {
             this.fireRate = this.selectedCharacter.fireRate;
             this.boomerangCount = this.selectedCharacter.boomerang || 0;
             this.bigBoomCount = this.selectedCharacter.bigBoom || 0;
+            this.maxHealth = this.selectedCharacter.health || 100;
+            this.health = this.maxHealth; // Set current health to max health
         } else {
             // Fallback to first character from data if none selected
             const charactersData = this.cache.json.get('characters-data');
             this.selectedCharacter = charactersData[0] || {
                 name: "vonhagel.eth",
-                image: "42161-4000000009-0x57a482ea32c7f75a9c0734206f5bd4f9bcb38e12.png",
+                image: "42161-4000000009-transparent.png",
                 fireRate: 500,
                 boomerang: 0,
                 bigBoom: 0,
+                health: 100,
                 nft_id: "42161-4000000009"
             };
             this.fireRate = this.selectedCharacter.fireRate;
             this.boomerangCount = this.selectedCharacter.boomerang || 0;
             this.bigBoomCount = this.selectedCharacter.bigBoom || 0;
+            this.maxHealth = this.selectedCharacter.health || 100;
+            this.health = this.maxHealth; // Set current health to max health
         }
 
         // Set up the map dynamically
@@ -276,6 +285,9 @@ export class Start extends Phaser.Scene {
         
         // Add health bar
         this.createHealthBar();
+        
+        // Update health bar to show correct values for the selected character
+        this.updateHealthBar();
 
         // Add experience bar
         this.createExperienceBar();
@@ -405,7 +417,7 @@ export class Start extends Phaser.Scene {
 
     getCharacterInfoText() {
         if (!this.selectedCharacter) return '';
-        return `Character: ${this.selectedCharacter.name}\nSession: ${this.formatSessionTime()}\nLevel: ${this.level}\nFire Rate: ${this.fireRate}ms\nMap: ${this.selectedMap ? this.selectedMap.name : 'Loading...'}`;
+        return `Character: ${this.selectedCharacter.name}\nHealth: ${this.health}/${this.maxHealth}\nSession: ${this.formatSessionTime()}\nLevel: ${this.level}\nFire Rate: ${this.fireRate}ms\nMap: ${this.selectedMap ? this.selectedMap.name : 'Loading...'}`;
     }
 
     updateSessionTimer() {
@@ -436,7 +448,7 @@ export class Start extends Phaser.Scene {
         this.healthBar.setDepth(1001);
 
         // Health text
-        this.healthText = this.add.text(x + barWidth/2, y + barHeight/2, '100/100', {
+        this.healthText = this.add.text(x + barWidth/2, y + barHeight/2, `${this.health}/${this.maxHealth}`, {
             fontSize: '14px',
             fill: '#000000'
         });
@@ -836,6 +848,11 @@ export class Start extends Phaser.Scene {
         // Damage player
         this.health = Math.max(0, this.health - 25);
         this.updateHealthBar();
+        
+        // Update character info to show new health
+        if (this.characterInfoText) {
+            this.characterInfoText.setText(this.getCharacterInfoText());
+        }
 
         // Remove the imp that hit the player
         imp.destroy();
@@ -891,9 +908,20 @@ export class Start extends Phaser.Scene {
         this.player.setVelocity(0, 0);
         
         // Stop all imps
-        this.imps.getChildren().forEach(imp => {
-            imp.setVelocity(0, 0);
-        });
+        if (this.imps && this.imps.getChildren) {
+            try {
+                const impChildren = this.imps.getChildren();
+                if (impChildren && Array.isArray(impChildren)) {
+                    impChildren.forEach(imp => {
+                        if (imp && imp.setVelocity) {
+                            imp.setVelocity(0, 0);
+                        }
+                    });
+                }
+            } catch (error) {
+                console.warn('Error stopping imps in game over:', error);
+            }
+        }
 
         // Show game over text
         this.gameOverText = this.add.text(this.cameras.main.centerX, this.cameras.main.centerY, 'GAME OVER\nPress ENTER to select character', {
@@ -910,6 +938,8 @@ export class Start extends Phaser.Scene {
     restartGame() {
         // Reset game state
         this.score = 0;
+        // Reset health and maxHealth based on selected character
+        this.maxHealth = this.selectedCharacter ? (this.selectedCharacter.health || 100) : 100;
         this.health = this.maxHealth;
         this.gameOver = false;
         this.currentSpawnDelay = 500;
@@ -958,6 +988,12 @@ export class Start extends Phaser.Scene {
     spawnImp() {
         if (this.gameOver || this.showingPowerUpDialog) return;
         
+        // Safety check: only spawn if game and scene are fully initialized
+        if (!this.imps || !this.player || !this.sys || !this.cameras) return;
+        
+        // Additional safety check: ensure scene is active and running
+        if (!this.scene.isActive() || !this.scene.isVisible()) return;
+        
         // Get random position at the edge of the visible area
         const edge = Phaser.Math.Between(0, 3);
         let x, y;
@@ -1005,7 +1041,24 @@ export class Start extends Phaser.Scene {
         let nearestImp = null;
         let shortestDistance = Infinity;
         
-        this.imps.getChildren().forEach(imp => {
+        // Safety check: only find nearest if imps group exists and is properly initialized
+        if (!this.imps || !this.imps.getChildren) return nearestImp;
+        
+        // Additional safety check: ensure getChildren returns an array
+        let children;
+        try {
+            children = this.imps.getChildren();
+        } catch (error) {
+            console.warn('Error getting imps children:', error);
+            return nearestImp;
+        }
+        
+        if (!children || !Array.isArray(children)) return nearestImp;
+        
+        children.forEach(imp => {
+            // Safety check: ensure imp is valid before calculating distance
+            if (!imp || typeof imp.x !== 'number' || typeof imp.y !== 'number') return;
+            
             const distance = Phaser.Math.Distance.Between(this.player.x, this.player.y, imp.x, imp.y);
             if (distance < shortestDistance) {
                 shortestDistance = distance;
@@ -1019,8 +1072,14 @@ export class Start extends Phaser.Scene {
     shootBullet() {
         if (this.gameOver) return;
         
-        // Safety check: only shoot if game is fully initialized
-        if (!this.bullets || !this.laserSound) return;
+        // Safety check: only shoot if game and scene are fully initialized
+        if (!this.bullets || !this.laserSound || !this.player || !this.sys || !this.time) return;
+        
+        // Additional safety check: ensure scene is active and running
+        if (!this.scene.isActive() || !this.scene.isVisible()) return;
+        
+        // Extra safety check: ensure bullets group is properly initialized with physics world
+        if (!this.bullets.world || !this.bullets.scene || this.bullets.scene !== this) return;
         
         const currentTime = this.time.now;
         if (currentTime - this.lastShotTime < this.fireRate) {
@@ -1032,38 +1091,52 @@ export class Start extends Phaser.Scene {
         // Play laser sound
         this.laserSound.play();
 
-        const bullet = this.bullets.create(this.player.x, this.player.y, 'blue-explosion');
-        bullet.setFrame(0);  // Use first frame as bullet
-        bullet.setScale(this.bulletScale); // Apply bullet scale power-up
-        
-        // Add visual effect for penetrating bullets
-        if (this.bulletSizeUpgradeCount > 3) {
-            bullet.setTint(0x7fff00); // Light green tint for penetrating bullets
-            bullet.setBlendMode(Phaser.BlendModes.ADD); // Additive blend for glow effect
+        // Additional safety check before creating bullet
+        try {
+            const bullet = this.bullets.create(this.player.x, this.player.y, 'blue-explosion');
+            if (!bullet) return; // Failed to create bullet
+            
+            bullet.setFrame(0);  // Use first frame as bullet
+            bullet.setScale(this.bulletScale); // Apply bullet scale power-up
+            
+            // Add visual effect for penetrating bullets
+            if (this.bulletSizeUpgradeCount > 3) {
+                bullet.setTint(0x7fff00); // Light green tint for penetrating bullets
+                bullet.setBlendMode(Phaser.BlendModes.ADD); // Additive blend for glow effect
+            }
+            
+            const nearestImp = this.findNearestImp();
+            let angle;
+            
+            if (nearestImp) {
+                // Shoot at nearest imp
+                angle = Phaser.Math.Angle.Between(this.player.x, this.player.y, nearestImp.x, nearestImp.y);
+            } else {
+                // Shoot in random direction
+                angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+            }
+            
+            const velocity = new Phaser.Math.Vector2();
+            velocity.setToPolar(angle, 300);  // 300 is bullet speed
+            
+            bullet.setVelocity(velocity.x, velocity.y);
+        } catch (error) {
+            console.warn('Error creating bullet:', error);
+            return;
         }
-        
-        const nearestImp = this.findNearestImp();
-        let angle;
-        
-        if (nearestImp) {
-            // Shoot at nearest imp
-            angle = Phaser.Math.Angle.Between(this.player.x, this.player.y, nearestImp.x, nearestImp.y);
-        } else {
-            // Shoot in random direction
-            angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
-        }
-        
-        const velocity = new Phaser.Math.Vector2();
-        velocity.setToPolar(angle, 300);  // 300 is bullet speed
-        
-        bullet.setVelocity(velocity.x, velocity.y);
     }
 
     shootBoomerang() {
         if (this.gameOver) return;
         
-        // Safety check: only shoot if game is fully initialized
-        if (!this.boomerangs) return;
+        // Safety check: only shoot if game and scene are fully initialized
+        if (!this.boomerangs || !this.player || !this.sys || !this.time) return;
+        
+        // Additional safety check: ensure scene is active and running
+        if (!this.scene.isActive() || !this.scene.isVisible()) return;
+        
+        // Extra safety check: ensure boomerangs group is properly initialized with physics world
+        if (!this.boomerangs.world || !this.boomerangs.scene || this.boomerangs.scene !== this) return;
         
         // Don't shoot if no boomerangs available
         if (this.boomerangCount <= 0) return;
@@ -1076,34 +1149,47 @@ export class Start extends Phaser.Scene {
         this.lastBoomerangTime = currentTime;
 
         // Fire multiple boomerangs
-        for (let i = 0; i < this.boomerangCount; i++) {
-            const boomerang = this.boomerangs.create(this.player.x, this.player.y, 'boomerang');
-            boomerang.setScale(4);
-            
-            // Random direction for each boomerang
-            const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
-            
-            // Store boomerang properties
-            boomerang.startX = this.player.x;
-            boomerang.startY = this.player.y;
-            boomerang.angle = angle;
-            boomerang.travelDistance = 360;
-            boomerang.distanceTraveled = 0;
-            boomerang.returning = false;
-            boomerang.speed = 500;
-            
-            // Set initial velocity
-            const velocity = new Phaser.Math.Vector2();
-            velocity.setToPolar(angle, boomerang.speed);
-            boomerang.setVelocity(velocity.x, velocity.y);
+        try {
+            for (let i = 0; i < this.boomerangCount; i++) {
+                const boomerang = this.boomerangs.create(this.player.x, this.player.y, 'boomerang');
+                if (!boomerang) continue; // Skip if failed to create
+                
+                boomerang.setScale(4);
+                
+                // Random direction for each boomerang
+                const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+                
+                // Store boomerang properties
+                boomerang.startX = this.player.x;
+                boomerang.startY = this.player.y;
+                boomerang.angle = angle;
+                boomerang.travelDistance = 360;
+                boomerang.distanceTraveled = 0;
+                boomerang.returning = false;
+                boomerang.speed = 500;
+                
+                // Set initial velocity
+                const velocity = new Phaser.Math.Vector2();
+                velocity.setToPolar(angle, boomerang.speed);
+                boomerang.setVelocity(velocity.x, velocity.y);
+            }
+        } catch (error) {
+            console.warn('Error creating boomerang:', error);
+            return;
         }
     }
 
     shootBigBoom() {
         if (this.gameOver) return;
         
-        // Safety check: only shoot if game is fully initialized
-        if (!this.bigBooms) return;
+        // Safety check: only shoot if game and scene are fully initialized
+        if (!this.bigBooms || !this.player || !this.sys || !this.time) return;
+        
+        // Additional safety check: ensure scene is active and running
+        if (!this.scene.isActive() || !this.scene.isVisible()) return;
+        
+        // Extra safety check: ensure bigBooms group is properly initialized with physics world
+        if (!this.bigBooms.world || !this.bigBooms.scene || this.bigBooms.scene !== this) return;
         
         // Don't shoot if no big booms available
         if (this.bigBoomCount <= 0) return;
@@ -1116,38 +1202,59 @@ export class Start extends Phaser.Scene {
         this.lastBigBoomTime = currentTime;
 
         // Fire multiple big booms based on power-up
-        for (let i = 0; i < this.bigBoomCount; i++) {
-            // Random angle around player
-            const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
-            const distance = 300;
-            
-            // Calculate position around player
-            const x = this.player.x + Math.cos(angle) * distance;
-            const y = this.player.y + Math.sin(angle) * distance;
+        try {
+            for (let i = 0; i < this.bigBoomCount; i++) {
+                // Random angle around player
+                const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+                const distance = 300;
+                
+                // Calculate position around player
+                const x = this.player.x + Math.cos(angle) * distance;
+                const y = this.player.y + Math.sin(angle) * distance;
 
-            const bigBoom = this.bigBooms.create(x, y, 'big-boom');
-            bigBoom.setScale(8);
-            
-            // Set random rotation before playing animation
-            bigBoom.setRotation(Phaser.Math.FloatBetween(0, Math.PI * 2));
-            
-            bigBoom.play('big-boom');
-            
-            // Set up collision radius (larger than visual for better gameplay)
-            bigBoom.body.setSize(32, 32); // 32 * 4 scale = 128 base size
-            
-            // Remove after animation completes
-            bigBoom.once('animationcomplete', () => {
-                bigBoom.destroy();
-            });
+                const bigBoom = this.bigBooms.create(x, y, 'big-boom');
+                if (!bigBoom) continue; // Skip if failed to create
+                
+                bigBoom.setScale(8);
+                
+                // Set random rotation before playing animation
+                bigBoom.setRotation(Phaser.Math.FloatBetween(0, Math.PI * 2));
+                
+                bigBoom.play('big-boom');
+                
+                // Set up collision radius (larger than visual for better gameplay)
+                bigBoom.body.setSize(32, 32); // 32 * 4 scale = 128 base size
+                
+                // Remove after animation completes
+                bigBoom.once('animationcomplete', () => {
+                    bigBoom.destroy();
+                });
+            }
+        } catch (error) {
+            console.warn('Error creating big boom:', error);
+            return;
         }
     }
 
     updateBoomerangs() {
-        // Safety check: only update if boomerangs group exists
-        if (!this.boomerangs) return;
+        // Safety check: only update if boomerangs group exists and is properly initialized
+        if (!this.boomerangs || !this.boomerangs.getChildren) return;
         
-        this.boomerangs.getChildren().forEach(boomerang => {
+        // Additional safety check: ensure getChildren returns an array
+        let children;
+        try {
+            children = this.boomerangs.getChildren();
+        } catch (error) {
+            console.warn('Error getting boomerangs children:', error);
+            return;
+        }
+        
+        if (!children || !Array.isArray(children)) return;
+        
+        children.forEach(boomerang => {
+            // Safety check: ensure boomerang is valid before processing
+            if (!boomerang || typeof boomerang.x !== 'number' || typeof boomerang.y !== 'number') return;
+            
             // Rotate the boomerang
             boomerang.rotation += 0.3;
             
@@ -1281,10 +1388,24 @@ export class Start extends Phaser.Scene {
     }
 
     cleanupBullets() {
-        // Safety check: only clean up if bullets group exists
-        if (!this.bullets) return;
+        // Safety check: only clean up if bullets group exists and is properly initialized
+        if (!this.bullets || !this.bullets.getChildren) return;
         
-        this.bullets.getChildren().forEach(bullet => {
+        // Additional safety check: ensure getChildren returns an array
+        let children;
+        try {
+            children = this.bullets.getChildren();
+        } catch (error) {
+            console.warn('Error getting bullets children:', error);
+            return;
+        }
+        
+        if (!children || !Array.isArray(children)) return;
+        
+        children.forEach(bullet => {
+            // Safety check: ensure bullet is valid before checking bounds
+            if (!bullet || typeof bullet.x !== 'number' || typeof bullet.y !== 'number') return;
+            
             // Check if bullet is far outside the world bounds
             const buffer = 100; // Extra buffer to ensure bullets are truly out of range
             if (bullet.x < -buffer || 
@@ -1297,6 +1418,12 @@ export class Start extends Phaser.Scene {
     }
 
     update() {
+        // Early exit: scene is shutting down or transitioning
+        if (!this.scene || !this.scene.isActive() || !this.scene.isVisible()) return;
+        
+        // Early exit: critical objects don't exist or are being destroyed
+        if (!this.player || !this.sys || !this.time || !this.cameras) return;
+        
         if (this.showingPowerUpDialog) return;
         
         // Handle game over state
@@ -1304,10 +1431,25 @@ export class Start extends Phaser.Scene {
             // Check for Enter key press to return to character selection
             if (this.enterKey && Phaser.Input.Keyboard.JustDown(this.enterKey)) {
                 console.log('Enter key detected in game over state, switching to character selection...');
+                this.sceneTransitioning = true; // Set transition flag before switching
                 this.scene.start('CharacterSelection');
             }
             return; // Don't process game logic when game is over
         }
+        
+        // Prevent game logic execution during scene transitions
+        if (this.sceneTransitioning) {
+            return;
+        }
+        
+        // Safety check: only process game logic if fully initialized
+        if (!this.player || !this.bullets || !this.boomerangs || !this.imps || !this.bigBooms || !this.sys || !this.time || !this.cameras) return;
+        
+        // Extra safety check: ensure player has required methods
+        if (!this.player.setVelocityX || !this.player.setVelocityY || typeof this.player.x !== 'number' || typeof this.player.y !== 'number') return;
+        
+        // Additional safety check: ensure scene is active and running
+        if (!this.scene.isActive() || !this.scene.isVisible()) return;
         
         // Clean up out-of-bounds bullets
         this.cleanupBullets();
@@ -1327,36 +1469,64 @@ export class Start extends Phaser.Scene {
         // Safety check: only process player movement if player and cursors exist
         if (!this.player || !this.cursors) return;
         
-        // Player movement with W, A, S, D keys
-        if (this.cursors.left.isDown || this.input.keyboard.checkDown(this.input.keyboard.addKey('A'))) {
-            this.player.setVelocityX(-200);
-            this.player.flipX = true; // Flip when moving left
-        } else if (this.cursors.right.isDown || this.input.keyboard.checkDown(this.input.keyboard.addKey('D'))) {
-            this.player.setVelocityX(200);
-            this.player.flipX = false; // Don't flip when moving right
-        } else {
-            this.player.setVelocityX(0);
-        }
-        if (this.cursors.up.isDown || this.input.keyboard.checkDown(this.input.keyboard.addKey('W'))) {
-            this.player.setVelocityY(-200);
-        } else if (this.cursors.down.isDown || this.input.keyboard.checkDown(this.input.keyboard.addKey('S'))) {
-            this.player.setVelocityY(200);
-        } else {
-            this.player.setVelocityY(0);
+        // Player movement with W, A, S, D keys - extra safety check before each operation
+        if (this.player && this.player.setVelocityX) {
+            if (this.cursors.left.isDown || this.input.keyboard.checkDown(this.input.keyboard.addKey('A'))) {
+                this.player.setVelocityX(-200);
+                this.player.flipX = true; // Flip when moving left
+            } else if (this.cursors.right.isDown || this.input.keyboard.checkDown(this.input.keyboard.addKey('D'))) {
+                this.player.setVelocityX(200);
+                this.player.flipX = false; // Don't flip when moving right
+            } else {
+                this.player.setVelocityX(0);
+            }
+            if (this.cursors.up.isDown || this.input.keyboard.checkDown(this.input.keyboard.addKey('W'))) {
+                this.player.setVelocityY(-200);
+            } else if (this.cursors.down.isDown || this.input.keyboard.checkDown(this.input.keyboard.addKey('S'))) {
+                this.player.setVelocityY(200);
+            } else {
+                this.player.setVelocityY(0);
+            }
         }
 
         // Update imp movement
-        this.imps.getChildren().forEach(imp => {
-            // Calculate direction to player
-            const angle = Phaser.Math.Angle.Between(imp.x, imp.y, this.player.x, this.player.y);
-            const velocity = new Phaser.Math.Vector2();
-            velocity.setToPolar(angle, 100);  // 100 is the speed
+        if (this.imps && this.imps.getChildren && this.physics && this.physics.world) {
+            try {
+                const impChildren = this.imps.getChildren();
+                if (impChildren && Array.isArray(impChildren)) {
+                    impChildren.forEach(imp => {
+                        // Safety check: ensure imp is valid before processing
+                        if (!imp || typeof imp.x !== 'number' || typeof imp.y !== 'number') return;
+                        
+                        // Additional safety check: ensure imp has required methods and body
+                        if (!imp.setVelocity || !imp.body || typeof imp.setVelocity !== 'function') return;
+                        
+                        // Safety check: ensure player is still valid for direction calculation
+                        if (!this.player || typeof this.player.x !== 'number' || typeof this.player.y !== 'number') return;
+                        
+                        // Additional safety check: ensure imp is still part of the active physics world
+                        if (!imp.body.world || imp.body.world !== this.physics.world) return;
+                        
+                        // Calculate direction to player
+                        const angle = Phaser.Math.Angle.Between(imp.x, imp.y, this.player.x, this.player.y);
+                        const velocity = new Phaser.Math.Vector2();
+                        velocity.setToPolar(angle, 100);  // 100 is the speed
 
-            imp.setVelocity(velocity.x, velocity.y);
-            
-            // Flip imp sprite based on movement direction
-            imp.flipX = velocity.x < 0;
-        });
+                        // Safe velocity setting with try-catch
+                        try {
+                            imp.setVelocity(velocity.x, velocity.y);
+                            
+                            // Flip imp sprite based on movement direction
+                            imp.flipX = velocity.x < 0;
+                        } catch (error) {
+                            console.warn('Error setting imp velocity:', error);
+                        }
+                    });
+                }
+            } catch (error) {
+                console.warn('Error updating imp movement:', error);
+            }
+        }
     }
     
 }
