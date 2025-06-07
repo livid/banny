@@ -27,6 +27,8 @@ export class CharacterSelection extends Phaser.Scene {
         // Static text objects
         this.titleText = null;
         this.instructionsText = null;
+        // Character selection tracking
+        this.selectionCountsKey = 'bannyCharacterSelectionCounts';
     }
 
     init() {
@@ -116,6 +118,9 @@ export class CharacterSelection extends Phaser.Scene {
         // Debug: log the characters data
         console.log('Loaded characters:', this.charactersData);
         
+        // Sort characters by selection count (most selected first)
+        this.sortCharactersByUsage();
+        
         // Add background image
         const background = this.add.image(this.cameras.main.centerX, this.cameras.main.centerY, 'space-background');
         background.setDisplaySize(this.cameras.main.width, this.cameras.main.height);
@@ -133,15 +138,16 @@ export class CharacterSelection extends Phaser.Scene {
         this.createCharacterGrid();
 
         // Add instructions
-        this.instructionsText = this.add.text(this.cameras.main.centerX, this.cameras.main.height - 100, 'Use ARROW KEYS to navigate • Q/E for pages • ENTER to select', {
+        this.instructionsText = this.add.text(this.cameras.main.centerX, this.cameras.main.height - 80, 'Use ARROW KEYS to navigate • Q/E for pages • ENTER to select\nCharacters ordered by usage frequency', {
             fontSize: '20px',
             fill: '#ffffff',
             stroke: '#000000',
-            strokeThickness: 2
+            strokeThickness: 2,
+            align: 'center'
         }).setOrigin(0.5, 0.5);
 
         // Add page indicator
-        this.pageText = this.add.text(this.cameras.main.centerX, this.cameras.main.height - 60, '', {
+        this.pageText = this.add.text(this.cameras.main.centerX, this.cameras.main.height - 40, '', {
             fontSize: '18px',
             fill: '#ffff00',
             stroke: '#000000',
@@ -186,6 +192,56 @@ export class CharacterSelection extends Phaser.Scene {
 
         // Initial selection highlight
         this.updateSelection();
+    }
+
+    // Character selection tracking methods
+    getSelectionCounts() {
+        try {
+            const counts = localStorage.getItem(this.selectionCountsKey);
+            return counts ? JSON.parse(counts) : {};
+        } catch (error) {
+            console.warn('Error reading selection counts from localStorage:', error);
+            return {};
+        }
+    }
+
+    saveSelectionCounts(counts) {
+        try {
+            localStorage.setItem(this.selectionCountsKey, JSON.stringify(counts));
+        } catch (error) {
+            console.warn('Error saving selection counts to localStorage:', error);
+        }
+    }
+
+    incrementSelectionCount(characterId) {
+        const counts = this.getSelectionCounts();
+        counts[characterId] = (counts[characterId] || 0) + 1;
+        this.saveSelectionCounts(counts);
+        console.log(`Character ${characterId} selected ${counts[characterId]} times`);
+    }
+
+    sortCharactersByUsage() {
+        const selectionCounts = this.getSelectionCounts();
+        
+        // Sort characters by selection count (descending), then by original order
+        this.charactersData.sort((a, b) => {
+            const countA = selectionCounts[a.nft_id] || 0;
+            const countB = selectionCounts[b.nft_id] || 0;
+            
+            // If counts are different, sort by count (descending)
+            if (countA !== countB) {
+                return countB - countA;
+            }
+            
+            // If counts are the same, maintain original order by comparing nft_id
+            return a.nft_id.localeCompare(b.nft_id);
+        });
+        
+        console.log('Characters sorted by usage:', this.charactersData.map(char => ({
+            name: char.name,
+            id: char.nft_id,
+            count: selectionCounts[char.nft_id] || 0
+        })));
     }
 
     update() {
@@ -349,8 +405,11 @@ export class CharacterSelection extends Phaser.Scene {
             }).setOrigin(0.5, 0.5);
             this.nameTexts.push(nameText);
 
-            // Character stats - show name and NFT ID
-            const statsText = this.add.text(x, y + 75, `${character.nft_id}`, {
+            // Character stats - show name, NFT ID, and selection count
+            const selectionCounts = this.getSelectionCounts();
+            const selectionCount = selectionCounts[character.nft_id] || 0;
+            const countText = selectionCount > 0 ? ` (×${selectionCount})` : '';
+            const statsText = this.add.text(x, y + 75, `${character.nft_id}${countText}`, {
                 fontSize: '12px',
                 fill: '#cccccc',
                 stroke: '#000000',
@@ -464,7 +523,10 @@ export class CharacterSelection extends Phaser.Scene {
         // Update debug text
         if (this.debugText && this.debugText.scene && this.charactersData) {
             const character = this.charactersData[this.selectedIndex];
-            this.debugText.setText(`Selected: ${this.selectedIndex} (${character?.name || 'Unknown'}) - Page ${this.currentPage + 1}/${this.totalPages}`);
+            const selectionCounts = this.getSelectionCounts();
+            const selectionCount = selectionCounts[character?.nft_id] || 0;
+            const countText = selectionCount > 0 ? ` (selected ${selectionCount}x)` : ' (never selected)';
+            this.debugText.setText(`Selected: ${this.selectedIndex} (${character?.name || 'Unknown'})${countText} - Page ${this.currentPage + 1}/${this.totalPages}`);
         }
         
         // Calculate local index on current page
@@ -494,6 +556,9 @@ export class CharacterSelection extends Phaser.Scene {
 
     selectCharacter() {
         const selectedCharacter = this.charactersData[this.selectedIndex];
+        
+        // Increment selection count in localStorage
+        this.incrementSelectionCount(selectedCharacter.nft_id);
         
         // Add a visual confirmation
         const confirmText = this.add.text(this.cameras.main.centerX, this.cameras.main.height - 100, 
