@@ -1130,7 +1130,7 @@ export class Start extends Phaser.Scene {
         if (this.gameOver) return;
         
         // Safety check: only shoot if game and scene are fully initialized
-        if (!this.boomerangs || !this.player || !this.sys || !this.time) return;
+        if (!this.boomerangs || !this.player || this.sys || !this.time) return;
         
         // Additional safety check: ensure scene is active and running
         if (!this.scene.isActive() || !this.scene.isVisible()) return;
@@ -1183,7 +1183,7 @@ export class Start extends Phaser.Scene {
         if (this.gameOver) return;
         
         // Safety check: only shoot if game and scene are fully initialized
-        if (!this.bigBooms || !this.player || !this.sys || !this.time) return;
+        if (!this.bigBooms || !this.player || this.sys || !this.time) return;
         
         // Additional safety check: ensure scene is active and running
         if (!this.scene.isActive() || !this.scene.isVisible()) return;
@@ -1420,9 +1420,10 @@ export class Start extends Phaser.Scene {
     update() {
         // Early exit: scene is shutting down or transitioning
         if (!this.scene || !this.scene.isActive() || !this.scene.isVisible()) return;
-        
         // Early exit: critical objects don't exist or are being destroyed
         if (!this.player || !this.sys || !this.time || !this.cameras) return;
+        // Extra safety: if player is destroyed or inactive, skip update
+        if (!this.player.active || typeof this.player.setVelocityX !== 'function' || typeof this.player.setVelocityY !== 'function') return;
         
         if (this.showingPowerUpDialog) return;
         
