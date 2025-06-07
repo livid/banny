@@ -115,8 +115,7 @@ export class Start extends Phaser.Scene {
         // Load characters data 
         this.load.json('characters-data', 'assets/characters/characters.json');
 
-        // Load monster
-        this.load.spritesheet('imp_red_walk', 'assets/monsters/imp_red_walk.png', { frameWidth: 50, frameHeight: 48 });
+        // Note: Monster sprites will be loaded dynamically based on selected map
         
         // Load effects
         this.load.spritesheet('blue-explosion', 'assets/effects/blue-explosion.png', { frameWidth: 32, frameHeight: 32 });
@@ -160,6 +159,20 @@ export class Start extends Phaser.Scene {
             }
         });
         
+        // Load monsters for this map
+        const monstersToLoad = [];
+        if (this.selectedMap.monsters) {
+            this.selectedMap.monsters.forEach(monster => {
+                if (!this.textures.exists(monster.key)) {
+                    monstersToLoad.push({ 
+                        key: monster.key, 
+                        path: `assets/monsters/${monster.file}`,
+                        monsterData: monster
+                    });
+                }
+            });
+        }
+        
         // Load tilemap JSON
         if (!this.cache.tilemap.exists(this.selectedMap.tiledJson.key)) {
             this.load.tilemapTiledJSON(this.selectedMap.tiledJson.key, `assets/maps/${this.selectedMap.tiledJson.file}`);
@@ -176,23 +189,38 @@ export class Start extends Phaser.Scene {
             }
         });
         
-        // Combine all assets to load
-        const allAssetsToLoad = [...tilesToLoad, ...imagesToLoad];
+        // Combine all assets to load (including monsters)
+        const allAssetsToLoad = [...tilesToLoad, ...monstersToLoad, ...imagesToLoad];
         
         // If there are assets to load, load them before continuing
         if (allAssetsToLoad.length > 0 || !this.cache.tilemap.exists(this.selectedMap.tiledJson.key)) {
             let loadedCount = 0;
             const totalToLoad = allAssetsToLoad.length + (this.cache.tilemap.exists(this.selectedMap.tiledJson.key) ? 0 : 1);
             
-            // Load tileset images
+            // Load assets (tilesets and character images)
             allAssetsToLoad.forEach(asset => {
-                this.load.image(asset.key, asset.path);
-                this.load.on(`filecomplete-image-${asset.key}`, () => {
-                    loadedCount++;
-                    if (loadedCount === totalToLoad) {
-                        this.initializeGame();
-                    }
-                });
+                if (asset.monsterData) {
+                    // Load monster as spritesheet
+                    this.load.spritesheet(asset.key, asset.path, { 
+                        frameWidth: asset.monsterData.frameWidth, 
+                        frameHeight: asset.monsterData.frameHeight 
+                    });
+                    this.load.on(`filecomplete-spritesheet-${asset.key}`, () => {
+                        loadedCount++;
+                        if (loadedCount === totalToLoad) {
+                            this.initializeGame();
+                        }
+                    });
+                } else {
+                    // Load regular image
+                    this.load.image(asset.key, asset.path);
+                    this.load.on(`filecomplete-image-${asset.key}`, () => {
+                        loadedCount++;
+                        if (loadedCount === totalToLoad) {
+                            this.initializeGame();
+                        }
+                    });
+                }
             });
             
             // Load tilemap JSON if needed
@@ -340,7 +368,7 @@ export class Start extends Phaser.Scene {
         // Add Big Boom group
         this.bigBooms = this.physics.add.group();
         
-        // Create imp group (moved before collision setup)
+        // Create monster group (moved before collision setup)
         this.imps = this.physics.add.group();
         
         // Create animations
@@ -359,24 +387,31 @@ export class Start extends Phaser.Scene {
             repeat: 0
         });
 
-        // Add imp animation
-        this.anims.create({
-            key: 'imp_walk',
-            frames: this.anims.generateFrameNumbers('imp_red_walk', { start: 0, end: 4 }),
-            frameRate: 8,
-            repeat: -1
-        });
+        // Create monster animations dynamically based on selected map
+        if (this.selectedMap && this.selectedMap.monsters) {
+            this.selectedMap.monsters.forEach(monster => {
+                this.anims.create({
+                    key: monster.animationKey,
+                    frames: this.anims.generateFrameNumbers(monster.key, { 
+                        start: monster.animationStart, 
+                        end: monster.animationEnd 
+                    }),
+                    frameRate: monster.animationFrameRate || 8,
+                    repeat: -1
+                });
+            });
+        }
 
-        // Setup bullet-imp collision (moved after groups are created)
+        // Setup bullet-monster collision (moved after groups are created)
         this.physics.add.overlap(this.bullets, this.imps, this.onBulletHitImp, null, this);
 
-        // Setup boomerang-imp collision
+        // Setup boomerang-monster collision
         this.physics.add.overlap(this.boomerangs, this.imps, this.onBoomerangHitImp, null, this);
 
-        // Setup Big Boom-imp collision
+        // Setup Big Boom-monster collision
         this.physics.add.overlap(this.bigBooms, this.imps, this.onBigBoomHitImp, null, this);
 
-        // Setup player-imp collision
+        // Setup player-monster collision
         this.physics.add.overlap(this.player, this.imps, this.onPlayerHitImp, null, this);
 
         // Setup collisions with map layers that have collision enabled
@@ -428,7 +463,7 @@ export class Start extends Phaser.Scene {
             this.backgroundMusic = globalBackgroundMusic;
         }
 
-        // Start spawning imps
+        // Start spawning monsters
         this.spawnTimer = this.time.addEvent({
             delay: this.currentSpawnDelay,
             callback: this.spawnImp,
@@ -1042,37 +1077,48 @@ export class Start extends Phaser.Scene {
         }
 
         try {
-            const imp = this.imps.create(x, y, 'imp_red_walk');
-            if (imp) {
-                imp.play('imp_walk');
-                imp.setCollideWorldBounds(true);
-                imp.setScale(2);
+            // Select a random monster from the current map
+            if (!this.selectedMap || !this.selectedMap.monsters || this.selectedMap.monsters.length === 0) {
+                console.warn('No monsters defined for selected map');
+                return;
+            }
+            
+            const randomMonster = Phaser.Utils.Array.GetRandom(this.selectedMap.monsters);
+            const monster = this.imps.create(x, y, randomMonster.key);
+            
+            if (monster) {
+                monster.play(randomMonster.animationKey);
+                monster.setCollideWorldBounds(true);
+                monster.setScale(randomMonster.scale || 2);
                 
-                // Adjust imp collision bounds to 50% of sprite size
-                const impWidth = imp.width * 0.5;
-                const impHeight = imp.height * 0.5;
-                imp.body.setSize(impWidth, impHeight);
+                // Adjust monster collision bounds based on monster data
+                const monsterWidth = monster.width * (randomMonster.collisionScale || 0.5);
+                const monsterHeight = monster.height * (randomMonster.collisionScale || 0.5);
+                monster.body.setSize(monsterWidth, monsterHeight);
+                
+                // Store monster type on the sprite for future reference
+                monster.monsterType = randomMonster.type;
             }
         } catch (error) {
-            console.warn('Error creating imp:', error);
+            console.warn('Error creating monster:', error);
         }
     }
 
     findNearestImp() {
         if (!this.isGroupValid(this.imps) || !this.isSpriteValid(this.player)) return null;
         
-        let nearestImp = null;
+        let nearestMonster = null;
         let shortestDistance = Infinity;
         
-        this.safeGroupForEach(this.imps, (imp) => {
-            const distance = Phaser.Math.Distance.Between(this.player.x, this.player.y, imp.x, imp.y);
+        this.safeGroupForEach(this.imps, (monster) => {
+            const distance = Phaser.Math.Distance.Between(this.player.x, this.player.y, monster.x, monster.y);
             if (distance < shortestDistance) {
                 shortestDistance = distance;
-                nearestImp = imp;
+                nearestMonster = monster;
             }
         });
         
-        return nearestImp;
+        return nearestMonster;
     }
 
     shootBullet() {
@@ -1097,9 +1143,9 @@ export class Start extends Phaser.Scene {
                 bullet.setBlendMode(Phaser.BlendModes.ADD);
             }
             
-            const nearestImp = this.findNearestImp();
-            const angle = nearestImp ? 
-                Phaser.Math.Angle.Between(this.player.x, this.player.y, nearestImp.x, nearestImp.y) :
+            const nearestMonster = this.findNearestImp();
+            const angle = nearestMonster ? 
+                Phaser.Math.Angle.Between(this.player.x, this.player.y, nearestMonster.x, nearestMonster.y) :
                 Phaser.Math.FloatBetween(0, Math.PI * 2);
             
             const velocity = new Phaser.Math.Vector2();
@@ -1227,34 +1273,34 @@ export class Start extends Phaser.Scene {
         return Math.max(minDelay, maxDelay - (maxDelay - minDelay) * progress);
     }
 
-    onBulletHitImp(bullet, imp) {
+    onBulletHitImp(bullet, monster) {
         this.playSoundSafe(this.hurtSound);
-        this.createExplosion(imp.x, imp.y);
+        this.createExplosion(monster.x, monster.y);
         
         // Only destroy bullet if it doesn't penetrate
         if (this.bulletSizeUpgradeCount <= 3) {
             bullet.destroy();
         }
         
-        imp.destroy();
+        monster.destroy();
         this.updateScore();
     }
 
-    onBoomerangHitImp(boomerang, imp) {
+    onBoomerangHitImp(boomerang, monster) {
         this.playSoundSafe(this.hurtSound);
-        this.createExplosion(imp.x, imp.y);
-        imp.destroy();
+        this.createExplosion(monster.x, monster.y);
+        monster.destroy();
         this.updateScore();
     }
 
-    onBigBoomHitImp(bigBoom, imp) {
+    onBigBoomHitImp(bigBoom, monster) {
         this.playSoundSafe(this.hurtSound);
-        this.createExplosion(imp.x, imp.y);
-        imp.destroy();
+        this.createExplosion(monster.x, monster.y);
+        monster.destroy();
         this.updateScore();
     }
 
-    onPlayerHitImp(player, imp) {
+    onPlayerHitImp(player, monster) {
         if (this.gameOver) return;
 
         this.playSoundSafe(this.maleHurtSound);
@@ -1266,7 +1312,7 @@ export class Start extends Phaser.Scene {
             this.characterInfoText.setText(this.getCharacterInfoText());
         }
 
-        imp.destroy();
+        monster.destroy();
 
         if (this.health <= 0) {
             this.triggerGameOver();
@@ -1357,15 +1403,15 @@ export class Start extends Phaser.Scene {
     updateImpMovement() {
         if (!this.isGroupValid(this.imps) || !this.isSpriteValid(this.player)) return;
         
-        this.safeGroupForEach(this.imps, (imp) => {
-            if (!imp.setVelocity || !imp.body?.world) return;
+        this.safeGroupForEach(this.imps, (monster) => {
+            if (!monster.setVelocity || !monster.body?.world) return;
             
-            const angle = Phaser.Math.Angle.Between(imp.x, imp.y, this.player.x, this.player.y);
+            const angle = Phaser.Math.Angle.Between(monster.x, monster.y, this.player.x, this.player.y);
             const velocity = new Phaser.Math.Vector2();
             velocity.setToPolar(angle, 100);
 
-            imp.setVelocity(velocity.x, velocity.y);
-            imp.flipX = velocity.x < 0;
+            monster.setVelocity(velocity.x, velocity.y);
+            monster.flipX = velocity.x < 0;
         });
     }
     

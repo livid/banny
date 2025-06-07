@@ -29,6 +29,22 @@
                 "name": "Trees",
                 "collision": true
             }
+        ],
+        "monsters": [
+            {
+                "name": "Imp",
+                "type": "imp",
+                "key": "imp_red_walk",
+                "file": "imp_red_walk.png",
+                "frameWidth": 50,
+                "frameHeight": 48,
+                "animationKey": "imp_walk",
+                "animationStart": 0,
+                "animationEnd": 5,
+                "animationFrameRate": 8,
+                "scale": 2,
+                "collisionScale": 0.5
+            }
         ]
     },
     "Maze": {
@@ -52,6 +68,22 @@
             {
                 "name": "Ground",
                 "collision": true
+            }
+        ],
+        "monsters": [
+            {
+                "name": "Imp",
+                "type": "imp",
+                "key": "imp_red_walk",
+                "file": "imp_red_walk.png",
+                "frameWidth": 50,
+                "frameHeight": 48,
+                "animationKey": "imp_walk",
+                "animationStart": 0,
+                "animationEnd": 5,
+                "animationFrameRate": 8,
+                "scale": 2,
+                "collisionScale": 0.5
             }
         ]
     }
