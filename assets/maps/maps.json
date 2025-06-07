@@ -5,6 +5,10 @@
             "key": "desert-map",
             "file": "Desert.json"
         },
+        "tilesetSize": {
+            "width": 24,
+            "height": 24
+        },
         "tilesets": [
             {
                 "key": "desert-tiles",
@@ -32,6 +36,10 @@
         "tiledJson": {
             "key": "maze-map",
             "file": "Maze.json"
+        },
+        "tilesetSize": {
+            "width": 24,
+            "height": 24
         },
         "tilesets": [
             {

@@ -195,7 +195,11 @@ export class Start extends Phaser.Scene {
         }
 
         // Set up the map dynamically
-        const map = this.make.tilemap({ key: this.selectedMap.tiledJson.key, tileWidth: 24, tileHeight: 24 });
+        const map = this.make.tilemap({ 
+            key: this.selectedMap.tiledJson.key, 
+            tileWidth: this.selectedMap.tilesetSize.width, 
+            tileHeight: this.selectedMap.tilesetSize.height 
+        });
         
         // Add tilesets
         const tilesets = [];
