@@ -223,7 +223,7 @@ export class CharacterSelection extends Phaser.Scene {
     sortCharactersByUsage() {
         const selectionCounts = this.getSelectionCounts();
         
-        // Sort characters by selection count (descending), then by original order
+        // Sort characters by selection count (descending), then by name (ascending), with 0x names at the end
         this.charactersData.sort((a, b) => {
             const countA = selectionCounts[a.nft_id] || 0;
             const countB = selectionCounts[b.nft_id] || 0;
@@ -233,11 +233,23 @@ export class CharacterSelection extends Phaser.Scene {
                 return countB - countA;
             }
             
-            // If counts are the same, maintain original order by comparing nft_id
-            return a.nft_id.localeCompare(b.nft_id);
+            // If counts are the same, check for 0x names
+            const aStartsWith0x = a.name.startsWith('0x');
+            const bStartsWith0x = b.name.startsWith('0x');
+            
+            // If one starts with 0x and the other doesn't, put 0x at the end
+            if (aStartsWith0x && !bStartsWith0x) {
+                return 1; // a goes after b
+            }
+            if (!aStartsWith0x && bStartsWith0x) {
+                return -1; // a goes before b
+            }
+            
+            // If both have same 0x status, sort by name (ascending)
+            return a.name.localeCompare(b.name);
         });
         
-        console.log('Characters sorted by usage:', this.charactersData.map(char => ({
+        console.log('Characters sorted by usage (then name, 0x names last):', this.charactersData.map(char => ({
             name: char.name,
             id: char.nft_id,
             count: selectionCounts[char.nft_id] || 0
