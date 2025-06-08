@@ -112,6 +112,9 @@ export class Start extends Phaser.Scene {
         // Load maps configuration
         this.load.json('maps-data', 'assets/maps/maps.json');
         
+        // Load monsters configuration
+        this.load.json('monsters-data', 'assets/maps/monsters.json');
+        
         // Load characters data 
         this.load.json('characters-data', 'assets/characters/characters.json');
 
@@ -162,8 +165,10 @@ export class Start extends Phaser.Scene {
         // Load monsters for this map
         const monstersToLoad = [];
         if (this.selectedMap.monsters) {
-            this.selectedMap.monsters.forEach(monster => {
-                if (!this.textures.exists(monster.key)) {
+            const monstersData = this.cache.json.get('monsters-data');
+            this.selectedMap.monsters.forEach(monsterName => {
+                const monster = monstersData[monsterName];
+                if (monster && !this.textures.exists(monster.key)) {
                     monstersToLoad.push({ 
                         key: monster.key, 
                         path: `assets/monsters/${monster.file}`,
@@ -389,16 +394,20 @@ export class Start extends Phaser.Scene {
 
         // Create monster animations dynamically based on selected map
         if (this.selectedMap && this.selectedMap.monsters) {
-            this.selectedMap.monsters.forEach(monster => {
-                this.anims.create({
-                    key: monster.animationKey,
-                    frames: this.anims.generateFrameNumbers(monster.key, { 
-                        start: monster.animationStart, 
-                        end: monster.animationEnd 
-                    }),
-                    frameRate: monster.animationFrameRate || 8,
-                    repeat: -1
-                });
+            const monstersData = this.cache.json.get('monsters-data');
+            this.selectedMap.monsters.forEach(monsterName => {
+                const monster = monstersData[monsterName];
+                if (monster) {
+                    this.anims.create({
+                        key: monster.animationKey,
+                        frames: this.anims.generateFrameNumbers(monster.key, { 
+                            start: monster.animationStart, 
+                            end: monster.animationEnd 
+                        }),
+                        frameRate: monster.animationFrameRate || 8,
+                        repeat: -1
+                    });
+                }
             });
         }
 
@@ -1083,7 +1092,15 @@ export class Start extends Phaser.Scene {
                 return;
             }
             
-            const randomMonster = Phaser.Utils.Array.GetRandom(this.selectedMap.monsters);
+            const monstersData = this.cache.json.get('monsters-data');
+            const randomMonsterName = Phaser.Utils.Array.GetRandom(this.selectedMap.monsters);
+            const randomMonster = monstersData[randomMonsterName];
+            
+            if (!randomMonster) {
+                console.warn(`Monster ${randomMonsterName} not found in monsters data`);
+                return;
+            }
+            
             const monster = this.imps.create(x, y, randomMonster.key);
             
             if (monster) {
@@ -1092,7 +1109,6 @@ export class Start extends Phaser.Scene {
                 monster.setScale(randomMonster.scale || 2);
                 
                 // Adjust monster collision bounds based on monster data
-                
                 const monsterWidth = monster.width * (randomMonster.collisionWidthScale || 0.5);
                 const monsterHeight = monster.height * (randomMonster.collisionHeightScale || 0.8);
                 

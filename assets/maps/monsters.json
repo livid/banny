@@ -1,0 +1,44 @@
+{
+    "Imp": {
+        "name": "Imp",
+        "key": "imp_red_walk",
+        "file": "imp_red_walk.png",
+        "frameWidth": 50,
+        "frameHeight": 48,
+        "animationKey": "imp_walk",
+        "animationStart": 0,
+        "animationEnd": 5,
+        "animationFrameRate": 8,
+        "scale": 2,
+        "collisionWidthScale": 0.5,
+        "collisionHeightScale": 0.8
+    },
+    "Destroyer": {
+        "name": "Destroyer",
+        "key": "destroyer_orange_walk",
+        "file": "destroyer_orange_walk.png",
+        "frameWidth": 100,
+        "frameHeight": 80,
+        "animationKey": "destroyer_walk",
+        "animationStart": 0,
+        "animationEnd": 5,
+        "animationFrameRate": 8,
+        "scale": 2,
+        "collisionWidthScale": 0.5,
+        "collisionHeightScale": 0.6
+    },
+    "Tank": {
+        "name": "Tank",
+        "key": "tank_green_walk",
+        "file": "tank_green_walk.png",
+        "frameWidth": 100,
+        "frameHeight": 80,
+        "animationKey": "tank_walk",
+        "animationStart": 0,
+        "animationEnd": 5,
+        "animationFrameRate": 8,
+        "scale": 2,
+        "collisionWidthScale": 0.5,
+        "collisionHeightScale": 0.6
+    }
+}
