@@ -8,3 +8,5 @@
 ## Plan
 
 - [ ] Implement attack effects for blades.
+- [ ] Press a letter key to jump in the character selection scene.
+- [ ] Use circular dots in the character selection scene as page indicator.
