@@ -28,6 +28,9 @@ export class Start extends Phaser.Scene {
         this.bulletSizeUpgradeCount = 0; // Track number of bullet size upgrades
         this.showingPowerUpDialog = false;
         
+        // Damage system
+        this.baseBulletDamage = 10; // Base damage for bullets
+        
         // Session timer
         this.sessionStartTime = null;
         this.sessionTimer = null;
@@ -751,6 +754,16 @@ export class Start extends Phaser.Scene {
             });
         }
         
+        // Add damage upgrade option
+        if (this.baseBulletDamage < 50) { // Cap at 50 damage
+            const newDamage = Math.min(50, this.baseBulletDamage + 5);
+            availablePowerUps.push({
+                title: 'Increased Damage',
+                description: `Damage: ${this.baseBulletDamage} → ${newDamage}`,
+                type: 5
+            });
+        }
+        
         // Randomly select up to 3 options from available power-ups
         const maxOptions = Math.min(3, availablePowerUps.length);
         const selectedPowerUps = Phaser.Utils.Array.Shuffle(availablePowerUps).slice(0, maxOptions);
@@ -868,6 +881,10 @@ export class Start extends Phaser.Scene {
                 this.bulletScale = Math.min(4.0, this.bulletScale + 0.5);
                 this.bulletSizeUpgradeCount++;
                 break;
+            case 5:
+                // Increased Damage
+                this.baseBulletDamage = Math.min(50, this.baseBulletDamage + 5);
+                break;
         }
         
         // Update character info text to reflect new stats
@@ -930,6 +947,7 @@ export class Start extends Phaser.Scene {
             this.characterInfoText.setText(this.getCharacterInfoText());
         }
 
+        this.destroyMonsterHealthBar(monster);
         monster.destroy();
 
         if (this.health <= 0) {
@@ -1019,7 +1037,11 @@ export class Start extends Phaser.Scene {
         this.boomerangCount = this.selectedCharacter ? (this.selectedCharacter.boomerang || 0) : 0;
         this.bigBoomCount = this.selectedCharacter ? (this.selectedCharacter.bigBoom || 0) : 0;
         this.bulletScale = 1.0;
+        this.bulletSizeUpgradeCount = 0;
         this.showingPowerUpDialog = false;
+        
+        // Reset damage
+        this.baseBulletDamage = 10;
 
         // Update UI
         this.scoreText.setText('Score: 0');
@@ -1030,6 +1052,11 @@ export class Start extends Phaser.Scene {
         if (this.gameOverText) {
             this.gameOverText.destroy();
         }
+
+        // Clean up monster health bars before clearing monsters
+        this.safeGroupForEach(this.monsters, (monster) => {
+            this.destroyMonsterHealthBar(monster);
+        });
 
         // Clear all monsters and bullets
         this.monsters.clear(true, true);
@@ -1108,6 +1135,11 @@ export class Start extends Phaser.Scene {
                 monster.setCollideWorldBounds(true);
                 monster.setScale(randomMonster.scale || 2);
                 
+                // Set monster health and max health from monster data
+                monster.maxHealth = randomMonster.health || 100;
+                monster.currentHealth = monster.maxHealth;
+                monster.monsterData = randomMonster; // Store reference to monster data
+                
                 // Adjust monster collision bounds based on monster data
                 const monsterWidth = monster.width * (randomMonster.collisionWidthScale || 0.5);
                 const monsterHeight = monster.height * (randomMonster.collisionHeightScale || 0.8);
@@ -1119,6 +1151,62 @@ export class Start extends Phaser.Scene {
             }
         } catch (error) {
             console.warn('Error creating monster:', error);
+        }
+    }
+
+    createMonsterHealthBar(monster) {
+        if (monster.healthBar || monster.healthBarBg) return; // Already has health bar
+        
+        const barWidth = 40;
+        const barHeight = 6;
+        const x = monster.x - barWidth / 2;
+        const y = monster.y - monster.height / 2 - 15;
+
+        // Health bar background (red)
+        monster.healthBarBg = this.add.rectangle(x, y, barWidth, barHeight, 0x660000);
+        monster.healthBarBg.setOrigin(0, 0);
+        monster.healthBarBg.setDepth(999);
+
+        // Health bar fill (green)
+        monster.healthBar = this.add.rectangle(x, y, barWidth, barHeight, 0x00ff00);
+        monster.healthBar.setOrigin(0, 0);
+        monster.healthBar.setDepth(1000);
+    }
+
+    updateMonsterHealthBar(monster) {
+        if (!monster.healthBar || !monster.healthBarBg) return;
+        
+        const healthPercent = monster.currentHealth / monster.maxHealth;
+        const barWidth = 40;
+        
+        // Update health bar width and color
+        monster.healthBar.width = barWidth * healthPercent;
+        
+        // Change color based on health percentage
+        if (healthPercent > 0.6) {
+            monster.healthBar.setFillStyle(0x00ff00); // Green
+        } else if (healthPercent > 0.3) {
+            monster.healthBar.setFillStyle(0xffff00); // Yellow
+        } else {
+            monster.healthBar.setFillStyle(0xff0000); // Red
+        }
+        
+        // Update position to follow monster
+        const x = monster.x - barWidth / 2;
+        const y = monster.y - monster.height / 2 - 15;
+        
+        monster.healthBarBg.setPosition(x, y);
+        monster.healthBar.setPosition(x, y);
+    }
+
+    destroyMonsterHealthBar(monster) {
+        if (monster.healthBar) {
+            monster.healthBar.destroy();
+            monster.healthBar = null;
+        }
+        if (monster.healthBarBg) {
+            monster.healthBarBg.destroy();
+            monster.healthBarBg = null;
         }
     }
 
@@ -1296,29 +1384,94 @@ export class Start extends Phaser.Scene {
 
     onBulletHitMonster(bullet, monster) {
         this.playSoundSafe(this.hurtSound);
-        this.createExplosion(monster.x, monster.y);
+        
+        // Calculate damage
+        const damage = this.baseBulletDamage;
+        
+        // Apply damage to monster
+        monster.currentHealth -= damage;
+        
+        // Show damage number
+        this.showDamageNumber(monster.x, monster.y - 20, damage);
+        
+        // Create health bar if monster has taken damage and isn't at full health
+        if (monster.currentHealth < monster.maxHealth) {
+            this.createMonsterHealthBar(monster);
+        }
+        
+        // Update health bar
+        this.updateMonsterHealthBar(monster);
         
         // Only destroy bullet if it doesn't penetrate
         if (this.bulletSizeUpgradeCount <= 3) {
             bullet.destroy();
         }
         
-        monster.destroy();
-        this.updateScore();
+        // Check if monster is destroyed
+        if (monster.currentHealth <= 0) {
+            this.createExplosion(monster.x, monster.y);
+            this.destroyMonsterHealthBar(monster);
+            monster.destroy();
+            this.updateScore();
+        }
     }
 
     onBoomerangHitMonster(boomerang, monster) {
         this.playSoundSafe(this.hurtSound);
-        this.createExplosion(monster.x, monster.y);
-        monster.destroy();
-        this.updateScore();
+        
+        // Boomerangs do more damage than bullets
+        const damage = this.baseBulletDamage * 2;
+        
+        // Apply damage to monster
+        monster.currentHealth -= damage;
+        
+        // Show damage number
+        this.showDamageNumber(monster.x, monster.y - 20, damage);
+        
+        // Create health bar if monster has taken damage and isn't at full health
+        if (monster.currentHealth < monster.maxHealth) {
+            this.createMonsterHealthBar(monster);
+        }
+        
+        // Update health bar
+        this.updateMonsterHealthBar(monster);
+        
+        // Check if monster is destroyed
+        if (monster.currentHealth <= 0) {
+            this.createExplosion(monster.x, monster.y);
+            this.destroyMonsterHealthBar(monster);
+            monster.destroy();
+            this.updateScore();
+        }
     }
 
     onBigBoomHitMonster(bigBoom, monster) {
         this.playSoundSafe(this.hurtSound);
-        this.createExplosion(monster.x, monster.y);
-        monster.destroy();
-        this.updateScore();
+        
+        // Big booms do much more damage than bullets
+        const damage = this.baseBulletDamage * 5;
+        
+        // Apply damage to monster
+        monster.currentHealth -= damage;
+        
+        // Show damage number
+        this.showDamageNumber(monster.x, monster.y - 20, damage);
+        
+        // Create health bar if monster has taken damage and isn't at full health
+        if (monster.currentHealth < monster.maxHealth) {
+            this.createMonsterHealthBar(monster);
+        }
+        
+        // Update health bar
+        this.updateMonsterHealthBar(monster);
+        
+        // Check if monster is destroyed
+        if (monster.currentHealth <= 0) {
+            this.createExplosion(monster.x, monster.y);
+            this.destroyMonsterHealthBar(monster);
+            monster.destroy();
+            this.updateScore();
+        }
     }
 
     createExplosion(x, y) {
@@ -1326,6 +1479,41 @@ export class Start extends Phaser.Scene {
         explosion.play('explosion');
         explosion.once('animationcomplete', () => {
             explosion.destroy();
+        });
+    }
+
+    showDamageNumber(x, y, damage) {
+        // Choose color based on damage amount
+        let color = '#ffffff'; // Default white
+        if (damage >= 50) {
+            color = '#ff0000'; // Red for high damage
+        } else if (damage >= 20) {
+            color = '#ffaa00'; // Orange for medium damage
+        } else {
+            color = '#ffff00'; // Yellow for low damage
+        }
+        
+        const damageText = this.add.text(x, y, damage.toString(), {
+            fontSize: '24px',
+            fill: color,
+            stroke: '#000000',
+            strokeThickness: 3,
+            fontStyle: 'bold'
+        });
+        damageText.setOrigin(0.5, 0.5);
+        damageText.setDepth(1000); // Ensure it appears above other objects
+        
+        // Animate the damage number
+        this.tweens.add({
+            targets: damageText,
+            y: y - 40,
+            alpha: 0,
+            scale: 1.5,
+            duration: 500,
+            ease: 'Power2',
+            onComplete: () => {
+                damageText.destroy();
+            }
         });
     }
 
@@ -1414,6 +1602,9 @@ export class Start extends Phaser.Scene {
 
             monster.setVelocity(velocity.x, velocity.y);
             monster.flipX = velocity.x < 0;
+            
+            // Update health bar position
+            this.updateMonsterHealthBar(monster);
         });
     }
     
