@@ -1092,12 +1092,11 @@ export class Start extends Phaser.Scene {
                 monster.setScale(randomMonster.scale || 2);
                 
                 // Adjust monster collision bounds based on monster data
-                const monsterWidth = monster.width * (randomMonster.collisionScale || 0.5);
-                const monsterHeight = monster.height * (randomMonster.collisionScale || 0.5);
-                monster.body.setSize(monsterWidth, monsterHeight);
                 
-                // Store monster type on the sprite for future reference
-                monster.monsterType = randomMonster.type;
+                const monsterWidth = monster.width * (randomMonster.collisionWidthScale || 0.5);
+                const monsterHeight = monster.height * (randomMonster.collisionHeightScale || 0.8);
+                
+                monster.body.setSize(monsterWidth, monsterHeight);
             }
         } catch (error) {
             console.warn('Error creating monster:', error);
