@@ -30,10 +30,10 @@
     "name": "joshuab.eth"
   },
   {
-    "fireRate": 500,
-    "bigBoom": 0,
+    "fireRate": 650,
+    "bigBoom": 1,
     "boomerang": 0,
-    "health": 100,
+    "health": 169,
     "nft_id": "1-4000000076",
     "image": "1-4000000076-transparent.png",
     "imageSelection": "1-4000000076-with-bg.png",
@@ -180,10 +180,10 @@
     "name": "fcarva.eth"
   },
   {
-    "fireRate": 500,
-    "bigBoom": 0,
+    "fireRate": 650,
+    "bigBoom": 1,
     "boomerang": 0,
-    "health": 150,
+    "health": 219,
     "nft_id": "1-3000000026",
     "image": "1-3000000026-transparent.png",
     "imageSelection": "1-3000000026-with-bg.png",
@@ -250,7 +250,7 @@
     "name": "0xdf08...1f1b"
   },
   {
-    "fireRate": 500,
+    "fireRate": 450,
     "bigBoom": 0,
     "boomerang": 0,
     "health": 100,
@@ -420,7 +420,7 @@
     "name": "jigglyjams.eth"
   },
   {
-    "fireRate": 500,
+    "fireRate": 450,
     "bigBoom": 0,
     "boomerang": 0,
     "health": 100,
@@ -480,7 +480,7 @@
     "name": "0xxtinct.eth"
   },
   {
-    "fireRate": 500,
+    "fireRate": 450,
     "bigBoom": 0,
     "boomerang": 0,
     "health": 150,
@@ -670,7 +670,7 @@
     "name": "nakedfool.eth"
   },
   {
-    "fireRate": 500,
+    "fireRate": 450,
     "bigBoom": 0,
     "boomerang": 0,
     "health": 100,
