@@ -11,7 +11,9 @@
         "animationFrameRate": 8,
         "scale": 2,
         "collisionWidthScale": 0.5,
-        "collisionHeightScale": 0.8
+        "collisionHeightScale": 0.75,
+        "collisionOffsetX": 15,
+        "collisionOffsetY": 10
     },
     "Destroyer": {
         "name": "Destroyer",
@@ -24,8 +26,10 @@
         "animationEnd": 5,
         "animationFrameRate": 8,
         "scale": 2,
-        "collisionWidthScale": 0.5,
-        "collisionHeightScale": 0.6
+        "collisionWidthScale": 0.4,
+        "collisionHeightScale": 0.5,
+        "collisionOffsetX": 30,
+        "collisionOffsetY": 30
     },
     "Tank": {
         "name": "Tank",
@@ -38,7 +42,25 @@
         "animationEnd": 5,
         "animationFrameRate": 8,
         "scale": 2,
-        "collisionWidthScale": 0.5,
-        "collisionHeightScale": 0.6
+        "collisionWidthScale": 0.4,
+        "collisionHeightScale": 0.55,
+        "collisionOffsetX": 30,
+        "collisionOffsetY": 30
+    },
+    "DemonHero": {
+        "name": "Demon Hero",
+        "key": "demon_hero_yellow_walk",
+        "file": "demon_hero_yellow_walk.png",
+        "frameWidth": 100,
+        "frameHeight": 80,
+        "animationKey": "demon_hero_yellow_walk",
+        "animationStart": 0,
+        "animationEnd": 5,
+        "animationFrameRate": 8,
+        "scale": 2,
+        "collisionWidthScale": 0.3,
+        "collisionHeightScale": 0.5,
+        "collisionOffsetX": 35,
+        "collisionOffsetY": 30
     }
 }

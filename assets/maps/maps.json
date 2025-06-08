@@ -33,7 +33,8 @@
         "monsters": [
             "Imp",
             "Destroyer",
-            "Tank"
+            "Tank",
+            "DemonHero"
         ]
     },
     "Maze": {
@@ -62,7 +63,8 @@
         "monsters": [
             "Imp",
             "Destroyer",
-            "Tank"
+            "Tank",
+            "DemonHero"
         ]
     }
 }

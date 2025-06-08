@@ -1111,8 +1111,11 @@ export class Start extends Phaser.Scene {
                 // Adjust monster collision bounds based on monster data
                 const monsterWidth = monster.width * (randomMonster.collisionWidthScale || 0.5);
                 const monsterHeight = monster.height * (randomMonster.collisionHeightScale || 0.8);
+                const monsterOffsetX = randomMonster.collisionOffsetX || 0;
+                const monsterOffsetY = randomMonster.collisionOffsetY || 0;
                 
                 monster.body.setSize(monsterWidth, monsterHeight);
+                monster.body.setOffset(monsterOffsetX, monsterOffsetY);
             }
         } catch (error) {
             console.warn('Error creating monster:', error);
@@ -1151,6 +1154,9 @@ export class Start extends Phaser.Scene {
             
             bullet.setFrame(0);
             bullet.setScale(this.bulletScale);
+            
+            // Set collision body scale to 0.5
+            bullet.body.setSize(bullet.width * 0.5, bullet.height * 0.5);
             
             // Add visual effect for penetrating bullets
             if (this.bulletSizeUpgradeCount > 3) {
