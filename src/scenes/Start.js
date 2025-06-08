@@ -374,7 +374,7 @@ export class Start extends Phaser.Scene {
         this.bigBooms = this.physics.add.group();
         
         // Create monster group (moved before collision setup)
-        this.imps = this.physics.add.group();
+        this.monsters = this.physics.add.group();
         
         // Create animations
         this.anims.create({
@@ -412,22 +412,22 @@ export class Start extends Phaser.Scene {
         }
 
         // Setup bullet-monster collision (moved after groups are created)
-        this.physics.add.overlap(this.bullets, this.imps, this.onBulletHitImp, null, this);
+        this.physics.add.overlap(this.bullets, this.monsters, this.onBulletHitMonster, null, this);
 
         // Setup boomerang-monster collision
-        this.physics.add.overlap(this.boomerangs, this.imps, this.onBoomerangHitImp, null, this);
+        this.physics.add.overlap(this.boomerangs, this.monsters, this.onBoomerangHitMonster, null, this);
 
         // Setup Big Boom-monster collision
-        this.physics.add.overlap(this.bigBooms, this.imps, this.onBigBoomHitImp, null, this);
+        this.physics.add.overlap(this.bigBooms, this.monsters, this.onBigBoomHitMonster, null, this);
 
         // Setup player-monster collision
-        this.physics.add.overlap(this.player, this.imps, this.onPlayerHitImp, null, this);
+        this.physics.add.overlap(this.player, this.monsters, this.onPlayerHitMonster, null, this);
 
         // Setup collisions with map layers that have collision enabled
         this.currentMapLayers.forEach(mapLayer => {
             if (mapLayer.collision) {
                 this.physics.add.collider(this.player, mapLayer.layer);
-                this.physics.add.collider(this.imps, mapLayer.layer);
+                this.physics.add.collider(this.monsters, mapLayer.layer);
             }
         });
 
@@ -475,7 +475,7 @@ export class Start extends Phaser.Scene {
         // Start spawning monsters
         this.spawnTimer = this.time.addEvent({
             delay: this.currentSpawnDelay,
-            callback: this.spawnImp,
+            callback: this.spawnMonster,
             callbackScope: this,
             loop: true
         });
@@ -655,7 +655,7 @@ export class Start extends Phaser.Scene {
         this.showingPowerUpDialog = true;
         this.physics.pause(); // Pause the game
         
-        // Pause the spawn timer to prevent imps from spawning during power-up selection
+        // Pause the spawn timer to prevent monsters from spawning during power-up selection
         if (this.spawnTimer) {
             this.spawnTimer.paused = true;
         }
@@ -918,7 +918,7 @@ export class Start extends Phaser.Scene {
         }
     }
 
-    onPlayerHitImp(player, imp) {
+    onPlayerHitMonster(player, monster) {
         if (this.gameOver) return;
 
         this.playSoundSafe(this.maleHurtSound);
@@ -930,7 +930,7 @@ export class Start extends Phaser.Scene {
             this.characterInfoText.setText(this.getCharacterInfoText());
         }
 
-        imp.destroy();
+        monster.destroy();
 
         if (this.health <= 0) {
             this.triggerGameOver();
@@ -974,7 +974,7 @@ export class Start extends Phaser.Scene {
             this.sessionTimer = null;
         }
         
-        // Stop spawning imps
+        // Stop spawning monsters
         this.spawnTimer?.destroy();
         
         // Stop player movement
@@ -982,9 +982,9 @@ export class Start extends Phaser.Scene {
             this.player.setVelocity(0, 0);
         }
         
-        // Stop all imps
-        this.safeGroupForEach(this.imps, (imp) => {
-            imp.setVelocity(0, 0);
+        // Stop all monsters
+        this.safeGroupForEach(this.monsters, (monster) => {
+            monster.setVelocity(0, 0);
         });
 
         // Show game over text
@@ -1031,8 +1031,8 @@ export class Start extends Phaser.Scene {
             this.gameOverText.destroy();
         }
 
-        // Clear all imps and bullets
-        this.imps.clear(true, true);
+        // Clear all monsters and bullets
+        this.monsters.clear(true, true);
         this.bullets.clear(true, true);
         this.boomerangs.clear(true, true);
         this.bigBooms.clear(true, true);
@@ -1041,17 +1041,17 @@ export class Start extends Phaser.Scene {
         this.player.setPosition(640, 360);
         this.player.setVelocity(0, 0);
 
-        // Restart imp spawning
+        // Restart monster spawning
         this.spawnTimer = this.time.addEvent({
             delay: this.currentSpawnDelay,
-            callback: this.spawnImp,
+            callback: this.spawnMonster,
             callbackScope: this,
             loop: true
         });
     }
 
-    spawnImp() {
-        if (!this.isGameActive() || this.showingPowerUpDialog || !this.isGroupValid(this.imps)) return;
+    spawnMonster() {
+        if (!this.isGameActive() || this.showingPowerUpDialog || !this.isGroupValid(this.monsters)) return;
         
         // Get random position at the edge of the visible area
         const edge = Phaser.Math.Between(0, 3);
@@ -1101,7 +1101,7 @@ export class Start extends Phaser.Scene {
                 return;
             }
             
-            const monster = this.imps.create(x, y, randomMonster.key);
+            const monster = this.monsters.create(x, y, randomMonster.key);
             
             if (monster) {
                 monster.play(randomMonster.animationKey);
@@ -1119,13 +1119,13 @@ export class Start extends Phaser.Scene {
         }
     }
 
-    findNearestImp() {
-        if (!this.isGroupValid(this.imps) || !this.isSpriteValid(this.player)) return null;
+    findNearestMonster() {
+        if (!this.isGroupValid(this.monsters) || !this.isSpriteValid(this.player)) return null;
         
         let nearestMonster = null;
         let shortestDistance = Infinity;
         
-        this.safeGroupForEach(this.imps, (monster) => {
+        this.safeGroupForEach(this.monsters, (monster) => {
             const distance = Phaser.Math.Distance.Between(this.player.x, this.player.y, monster.x, monster.y);
             if (distance < shortestDistance) {
                 shortestDistance = distance;
@@ -1158,7 +1158,7 @@ export class Start extends Phaser.Scene {
                 bullet.setBlendMode(Phaser.BlendModes.ADD);
             }
             
-            const nearestMonster = this.findNearestImp();
+            const nearestMonster = this.findNearestMonster();
             const angle = nearestMonster ? 
                 Phaser.Math.Angle.Between(this.player.x, this.player.y, nearestMonster.x, nearestMonster.y) :
                 Phaser.Math.FloatBetween(0, Math.PI * 2);
@@ -1288,7 +1288,7 @@ export class Start extends Phaser.Scene {
         return Math.max(minDelay, maxDelay - (maxDelay - minDelay) * progress);
     }
 
-    onBulletHitImp(bullet, monster) {
+    onBulletHitMonster(bullet, monster) {
         this.playSoundSafe(this.hurtSound);
         this.createExplosion(monster.x, monster.y);
         
@@ -1301,37 +1301,18 @@ export class Start extends Phaser.Scene {
         this.updateScore();
     }
 
-    onBoomerangHitImp(boomerang, monster) {
+    onBoomerangHitMonster(boomerang, monster) {
         this.playSoundSafe(this.hurtSound);
         this.createExplosion(monster.x, monster.y);
         monster.destroy();
         this.updateScore();
     }
 
-    onBigBoomHitImp(bigBoom, monster) {
+    onBigBoomHitMonster(bigBoom, monster) {
         this.playSoundSafe(this.hurtSound);
         this.createExplosion(monster.x, monster.y);
         monster.destroy();
         this.updateScore();
-    }
-
-    onPlayerHitImp(player, monster) {
-        if (this.gameOver) return;
-
-        this.playSoundSafe(this.maleHurtSound);
-        
-        this.health = Math.max(0, this.health - 25);
-        this.updateHealthBar();
-        
-        if (this.characterInfoText) {
-            this.characterInfoText.setText(this.getCharacterInfoText());
-        }
-
-        monster.destroy();
-
-        if (this.health <= 0) {
-            this.triggerGameOver();
-        }
     }
 
     createExplosion(x, y) {
@@ -1388,7 +1369,7 @@ export class Start extends Phaser.Scene {
         this.shootBullet();
         
         this.updatePlayerMovement();
-        this.updateImpMovement();
+        this.updateMonsterMovement();
     }
 
     updatePlayerMovement() {
@@ -1415,10 +1396,10 @@ export class Start extends Phaser.Scene {
         this.player.setVelocity(velocityX, velocityY);
     }
 
-    updateImpMovement() {
-        if (!this.isGroupValid(this.imps) || !this.isSpriteValid(this.player)) return;
+    updateMonsterMovement() {
+        if (!this.isGroupValid(this.monsters) || !this.isSpriteValid(this.player)) return;
         
-        this.safeGroupForEach(this.imps, (monster) => {
+        this.safeGroupForEach(this.monsters, (monster) => {
             if (!monster.setVelocity || !monster.body?.world) return;
             
             const angle = Phaser.Math.Angle.Between(monster.x, monster.y, this.player.x, this.player.y);
