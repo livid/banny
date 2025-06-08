@@ -40,6 +40,12 @@ export class Start extends Phaser.Scene {
         this.selectedMap = null; // Will store selected map data
         this.currentMapLayers = []; // Track created layers for collision setup
         
+        // Sandstorm effect
+        this.sandstormEmitter = null;
+        this.sandstormTimer = null;
+        this.sandstormIntensity = 0.5; // 0.0 to 1.0
+        this.sandstormDirection = 0; // angle in degrees
+        
         // Scene transition management
         this.sceneTransitioning = false; // Flag to prevent updates during scene transitions
     }
@@ -81,6 +87,103 @@ export class Start extends Phaser.Scene {
         }
     }
 
+    createSandstormEffect() {
+        // Only create sandstorm for desert map
+        if (!this.selectedMap || this.selectedMap.name !== 'Desert') {
+            return;
+        }
+
+        // Create particle emitter for sandstorm that covers the entire map
+        this.sandstormEmitter = this.add.particles(0, 0, 'sand-particle', {
+            // Position and area - cover entire world bounds
+            x: { min: -500, max: this.physics.world.bounds.width + 500 },
+            y: { min: -300, max: this.physics.world.bounds.height + 300 },
+            
+            // Movement
+            speedX: { min: 50, max: 150 },
+            speedY: { min: -20, max: 20 },
+            
+            // Visual properties
+            scale: { start: 0.5, end: 1.5 },
+            alpha: { start: 0.3, end: 0.1 },
+            tint: [0xD2B48C, 0xF4A460, 0xDEB887, 0xD2691E], // Various sand colors
+            
+            // Lifetime
+            lifespan: { min: 3000, max: 6000 },
+            
+            // Emission
+            frequency: 30,
+            quantity: 3
+        });
+
+        // Set initial depth to be behind UI but in front of map
+        this.sandstormEmitter.setDepth(100);
+        
+        // Start the timer to change sandstorm properties every 10 seconds
+        this.sandstormTimer = this.time.addEvent({
+            delay: 10000, // 10 seconds
+            callback: this.updateSandstormProperties,
+            callbackScope: this,
+            loop: true
+        });
+
+        // Set initial properties
+        this.updateSandstormProperties();
+    }
+
+    updateSandstormProperties() {
+        if (!this.sandstormEmitter || !this.selectedMap || this.selectedMap.name !== 'Desert') {
+            return;
+        }
+
+        // Randomly change intensity (0.2 to 1.0)
+        this.sandstormIntensity = Phaser.Math.FloatBetween(0.2, 1.0);
+        
+        // Randomly change direction (-45 to 45 degrees from horizontal)
+        this.sandstormDirection = Phaser.Math.Between(-45, 45);
+        
+        // Convert direction to velocity components
+        const speed = this.sandstormIntensity * 200; // Base speed multiplied by intensity
+        const angleInRadians = Phaser.Math.DegToRad(this.sandstormDirection);
+        const speedX = Math.cos(angleInRadians) * speed;
+        const speedY = Math.sin(angleInRadians) * speed;
+
+        // Destroy old emitter and create new one with updated properties
+        if (this.sandstormEmitter) {
+            this.sandstormEmitter.destroy();
+        }
+
+        this.sandstormEmitter = this.add.particles(0, 0, 'sand-particle', {
+            // Position and area - cover entire world bounds
+            x: { min: -500, max: this.physics.world.bounds.width + 500 },
+            y: { min: -300, max: this.physics.world.bounds.height + 300 },
+            
+            // Movement with updated values
+            speedX: { min: speedX * 0.5, max: speedX * 1.5 },
+            speedY: { min: speedY - 20, max: speedY + 20 },
+            
+            // Visual properties
+            scale: { start: 0.5, end: 1.5 },
+            alpha: { 
+                start: 0.2 + (this.sandstormIntensity * 0.3), 
+                end: 0.05 + (this.sandstormIntensity * 0.15) 
+            },
+            tint: [0xD2B48C, 0xF4A460, 0xDEB887, 0xD2691E], // Various sand colors
+            
+            // Lifetime
+            lifespan: { min: 3000, max: 6000 },
+            
+            // Emission with updated values
+            frequency: Math.max(15, 60 - (this.sandstormIntensity * 30)),
+            quantity: Math.ceil(2 + this.sandstormIntensity * 4)
+        });
+
+        // Set initial depth to be behind UI but in front of map
+        this.sandstormEmitter.setDepth(100);
+
+        console.log(`Sandstorm updated - Intensity: ${this.sandstormIntensity.toFixed(2)}, Direction: ${this.sandstormDirection}°`);
+    }
+
     init() {
         // Reset game state when scene starts
         this.score = 0;
@@ -110,6 +213,18 @@ export class Start extends Phaser.Scene {
         this.selectedMap = null;
         this.currentMapLayers = [];
         this.rarityLoggedOnce = false;
+        
+        // Reset sandstorm effect
+        if (this.sandstormEmitter) {
+            this.sandstormEmitter.destroy();
+            this.sandstormEmitter = null;
+        }
+        if (this.sandstormTimer) {
+            this.sandstormTimer.destroy();
+            this.sandstormTimer = null;
+        }
+        this.sandstormIntensity = 0.5;
+        this.sandstormDirection = 0;
     }
 
     preload() {
@@ -126,6 +241,7 @@ export class Start extends Phaser.Scene {
         
         // Load effects
         this.load.spritesheet('blue-explosion', 'assets/effects/blue-explosion.png', { frameWidth: 32, frameHeight: 32 });
+        this.load.image('sand-particle', 'assets/effects/sand-particle.png');
         
         // Load boomerang
         this.load.image('boomerang', 'assets/super/boomerang.png');
@@ -328,6 +444,9 @@ export class Start extends Phaser.Scene {
         this.player.body.setSize(playerWidth, playerHeight);
         
         this.cameras.main.startFollow(this.player, true, 0.05, 0.05);
+
+        // Create sandstorm effect for desert map
+        this.createSandstormEffect();
 
         // Add score display
         this.scoreText = this.add.text(16, 16, 'Score: 0', {
@@ -966,6 +1085,16 @@ export class Start extends Phaser.Scene {
         if (this.sessionTimer) {
             this.sessionTimer.destroy();
             this.sessionTimer = null;
+        }
+        
+        // Clean up sandstorm effect
+        if (this.sandstormEmitter) {
+            this.sandstormEmitter.destroy();
+            this.sandstormEmitter = null;
+        }
+        if (this.sandstormTimer) {
+            this.sandstormTimer.destroy();
+            this.sandstormTimer = null;
         }
         
         // Only stop background music if we're leaving the game completely
