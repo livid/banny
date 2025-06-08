@@ -1423,8 +1423,8 @@ export class Start extends Phaser.Scene {
     onBulletHitMonster(bullet, monster) {
         this.playSoundSafe(this.hurtSound);
         
-        // Calculate damage
-        const damage = this.baseBulletDamage;
+        // Calculate damage with distance-based variation
+        const damage = this.calculateDistanceBasedDamage(this.baseBulletDamage, monster);
         
         // Apply damage to monster
         monster.currentHealth -= damage;
@@ -1457,8 +1457,9 @@ export class Start extends Phaser.Scene {
     onBoomerangHitMonster(boomerang, monster) {
         this.playSoundSafe(this.hurtSound);
         
-        // Boomerangs do more damage than bullets
-        const damage = this.baseBulletDamage * 2;
+        // Boomerangs do more damage than bullets, with distance-based variation
+        const baseDamage = this.baseBulletDamage * 2;
+        const damage = this.calculateDistanceBasedDamage(baseDamage, monster);
         
         // Apply damage to monster
         monster.currentHealth -= damage;
@@ -1486,8 +1487,9 @@ export class Start extends Phaser.Scene {
     onBigBoomHitMonster(bigBoom, monster) {
         this.playSoundSafe(this.hurtSound);
         
-        // Big booms do much more damage than bullets
-        const damage = this.baseBulletDamage * 5;
+        // Big booms do much more damage than bullets, with distance-based variation
+        const baseDamage = this.baseBulletDamage * 5;
+        const damage = this.calculateDistanceBasedDamage(baseDamage, monster);
         
         // Apply damage to monster
         monster.currentHealth -= damage;
@@ -1673,6 +1675,25 @@ export class Start extends Phaser.Scene {
         
         // Select randomly from the weighted list
         return Phaser.Utils.Array.GetRandom(weightedMonsters);
+    }
+
+    calculateDistanceBasedDamage(baseDamage, monster) {
+        // Calculate distance between player and monster
+        const distance = Phaser.Math.Distance.Between(this.player.x, this.player.y, monster.x, monster.y);
+        
+        // Define a reasonable max distance for damage calculation (e.g., screen width)
+        const maxDistance = 800; // Adjust this value based on your game's scale
+        
+        // Normalize distance to 0-1 range (0 = very close, 1 = max distance)
+        const normalizedDistance = Math.min(distance / maxDistance, 1);
+        
+        // Calculate damage multiplier: 1.2 (close) to 0.8 (far)
+        // When normalizedDistance = 0 (close), multiplier = 1.2
+        // When normalizedDistance = 1 (far), multiplier = 0.8
+        const damageMultiplier = 1.2 - (normalizedDistance * 0.4);
+        
+        // Apply multiplier to base damage and round to integer
+        return Math.round(baseDamage * damageMultiplier);
     }
 
 }
