@@ -109,6 +109,7 @@ export class Start extends Phaser.Scene {
         // Reset map selection for new game
         this.selectedMap = null;
         this.currentMapLayers = [];
+        this.rarityLoggedOnce = false;
     }
 
     preload() {
@@ -1113,14 +1114,14 @@ export class Start extends Phaser.Scene {
         }
 
         try {
-            // Select a random monster from the current map
+            // Select a random monster from the current map based on rarity
             if (!this.selectedMap || !this.selectedMap.monsters || this.selectedMap.monsters.length === 0) {
                 console.warn('No monsters defined for selected map');
                 return;
             }
             
             const monstersData = this.cache.json.get('monsters-data');
-            const randomMonsterName = Phaser.Utils.Array.GetRandom(this.selectedMap.monsters);
+            const randomMonsterName = this.selectMonsterByRarity(this.selectedMap.monsters, monstersData);
             const randomMonster = monstersData[randomMonsterName];
             
             if (!randomMonster) {
@@ -1152,6 +1153,43 @@ export class Start extends Phaser.Scene {
         } catch (error) {
             console.warn('Error creating monster:', error);
         }
+    }
+
+    selectMonsterByRarity(availableMonsterNames, monstersData) {
+        // Create weighted list based on rarity values
+        const weightedMonsters = [];
+        
+        // Log rarity information for debugging (only once)
+        if (!this.rarityLoggedOnce) {
+            console.log('Monster rarity distribution:');
+            availableMonsterNames.forEach(monsterName => {
+                const monster = monstersData[monsterName];
+                if (monster && monster.rarity) {
+                    console.log(`  ${monsterName}: ${monster.rarity}% chance`);
+                }
+            });
+            this.rarityLoggedOnce = true;
+        }
+        
+        availableMonsterNames.forEach(monsterName => {
+            const monster = monstersData[monsterName];
+            if (monster && monster.rarity) {
+                // Add monster to weighted list based on its rarity
+                for (let i = 0; i < monster.rarity; i++) {
+                    weightedMonsters.push(monsterName);
+                }
+            }
+        });
+        
+        // If no monsters have rarity values, fall back to uniform random selection
+        if (weightedMonsters.length === 0) {
+            console.warn('No monsters found with rarity values, using uniform random selection');
+            return Phaser.Utils.Array.GetRandom(availableMonsterNames);
+        }
+        
+        // Select randomly from the weighted list
+        const selectedMonster = Phaser.Utils.Array.GetRandom(weightedMonsters);
+        return selectedMonster;
     }
 
     createMonsterHealthBar(monster) {
@@ -1412,7 +1450,7 @@ export class Start extends Phaser.Scene {
             this.createExplosion(monster.x, monster.y);
             this.destroyMonsterHealthBar(monster);
             monster.destroy();
-            this.updateScore();
+            this.updateScore(monster);
         }
     }
 
@@ -1441,7 +1479,7 @@ export class Start extends Phaser.Scene {
             this.createExplosion(monster.x, monster.y);
             this.destroyMonsterHealthBar(monster);
             monster.destroy();
-            this.updateScore();
+            this.updateScore(monster);
         }
     }
 
@@ -1470,7 +1508,7 @@ export class Start extends Phaser.Scene {
             this.createExplosion(monster.x, monster.y);
             this.destroyMonsterHealthBar(monster);
             monster.destroy();
-            this.updateScore();
+            this.updateScore(monster);
         }
     }
 
@@ -1494,7 +1532,7 @@ export class Start extends Phaser.Scene {
         }
         
         const damageText = this.add.text(x, y, damage.toString(), {
-            fontSize: '24px',
+            fontSize: '18px',
             fill: color,
             stroke: '#000000',
             strokeThickness: 3,
@@ -1509,7 +1547,7 @@ export class Start extends Phaser.Scene {
             y: y - 40,
             alpha: 0,
             scale: 1.5,
-            duration: 500,
+            duration: 600,
             ease: 'Power2',
             onComplete: () => {
                 damageText.destroy();
@@ -1517,10 +1555,15 @@ export class Start extends Phaser.Scene {
         });
     }
 
-    updateScore() {
+    updateScore(monster = null) {
         this.score += 1;
         this.scoreText.setText('Score: ' + this.score);
-        this.addExperience(10);
+        
+        // Use monster's experience value if available, otherwise fall back to default
+        const experienceGain = (monster && monster.monsterData && monster.monsterData.experience) 
+            ? monster.monsterData.experience 
+            : 10;
+        this.addExperience(experienceGain);
         
         this.currentSpawnDelay = this.calculateSpawnDelay();
         this.spawnTimer.delay = this.currentSpawnDelay;
@@ -1608,4 +1651,28 @@ export class Start extends Phaser.Scene {
         });
     }
     
+    selectMonsterByRarity(availableMonsterNames, monstersData) {
+        // Create weighted list based on rarity values
+        const weightedMonsters = [];
+        
+        availableMonsterNames.forEach(monsterName => {
+            const monster = monstersData[monsterName];
+            if (monster && monster.rarity) {
+                // Add monster to weighted list based on its rarity
+                for (let i = 0; i < monster.rarity; i++) {
+                    weightedMonsters.push(monsterName);
+                }
+            }
+        });
+        
+        // If no monsters have rarity values, fall back to uniform random selection
+        if (weightedMonsters.length === 0) {
+            console.warn('No monsters found with rarity values, using uniform random selection');
+            return Phaser.Utils.Array.GetRandom(availableMonsterNames);
+        }
+        
+        // Select randomly from the weighted list
+        return Phaser.Utils.Array.GetRandom(weightedMonsters);
+    }
+
 }
