@@ -2224,20 +2224,13 @@ export class Start extends Phaser.Scene {
             movement.normalize();
         }
         
-        // Apply movement using delta time for smooth, frame-rate independent movement
+        // Apply movement using velocity for proper collision handling
         if (movement.length() > 0) {
-            // Scale by speed and delta time (converted from ms to seconds)
-            const deltaTime = this.game.loop.delta / 1000;
-            movement.scale(speed * deltaTime);
+            // Scale movement by speed - Phaser's physics system handles frame rate independence
+            movement.scale(speed);
             
-            // Update player position directly for smoother movement
-            this.player.x += movement.x;
-            this.player.y += movement.y;
-            
-            // Update physics body position to match
-            if (this.player.body) {
-                this.player.body.updateFromGameObject();
-            }
+            // Use physics velocity for proper collision handling
+            this.player.setVelocity(movement.x, movement.y);
         } else {
             // Stop any existing velocity when not moving
             this.player.setVelocity(0, 0);
