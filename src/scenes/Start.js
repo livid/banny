@@ -853,8 +853,8 @@ export class Start extends Phaser.Scene {
         // Title
         this.powerUpTitle = this.add.text(
             this.cameras.main.centerX, 
-            this.cameras.main.centerY - 120, 
-            'LEVEL UP!\nChoose a Power-Up:\n(Keys 1-3, D-pad/Stick + B button)', 
+            this.cameras.main.centerY - 100, 
+            'LEVEL UP!\nChoose a Power-Up:', 
             {
                 fontSize: '24px',
                 fill: '#ffffff',
@@ -1390,8 +1390,8 @@ export class Start extends Phaser.Scene {
 
         // Show game over text
         this.gameOverText = this.add.text(this.cameras.main.centerX, this.cameras.main.centerY, 
-            'GAME OVER\nPress ENTER to select character', {
-            fontSize: '48px',
+            'GAME OVER\nPress ENTER or B/Start button to select character', {
+            fontSize: '42px',
             fill: '#ff0000',
             stroke: '#000000',
             strokeThickness: 3,
@@ -1970,6 +1970,44 @@ export class Start extends Phaser.Scene {
     }
 
     update() {
+        // Handle game over state first (before isGameActive check)
+        if (this.gameOver) {
+            // Handle keyboard input
+            if (this.enterKey && Phaser.Input.Keyboard.JustDown(this.enterKey)) {
+                this.sceneTransitioning = true;
+                this.scene.start('CharacterSelection');
+            }
+            
+            // Handle gamepad input (button 0 = B button, button 9 = Start button)
+            if (this.gamepad && this.gamepad.buttons) {
+                const button0 = this.gamepad.buttons[0];
+                const button9 = this.gamepad.buttons[9];
+                
+                // Manual justDown detection for button 0 (B button)
+                const button0WasPressed = this.previousButtonStates[0] || false;
+                const button0IsPressed = button0 && button0.pressed;
+                const button0JustPressed = button0IsPressed && !button0WasPressed;
+                
+                // Manual justDown detection for button 9 (Start button)
+                const button9WasPressed = this.previousButtonStates[9] || false;
+                const button9IsPressed = button9 && button9.pressed;
+                const button9JustPressed = button9IsPressed && !button9WasPressed;
+                
+                // Update previous states
+                this.previousButtonStates[0] = button0IsPressed;
+                this.previousButtonStates[9] = button9IsPressed;
+                
+                // Check for button presses
+                if (button0JustPressed || button9JustPressed) {
+                    this.sceneTransitioning = true;
+                    this.scene.start('CharacterSelection');
+                    return;
+                }
+            }
+            return;
+        }
+        
+        // Now check if game is active for normal gameplay
         if (!this.isGameActive()) return;
         
         // Handle power-up dialog gamepad input when dialog is showing
@@ -1978,15 +2016,7 @@ export class Start extends Phaser.Scene {
             return;
         }
         
-        // Handle game over state
-        if (this.gameOver) {
-            if (this.enterKey && Phaser.Input.Keyboard.JustDown(this.enterKey)) {
-                this.sceneTransitioning = true;
-                this.scene.start('CharacterSelection');
-            }
-            return;
-        }
-        
+        // Validate player and controls for normal gameplay
         if (!this.isSpriteValid(this.player) || !this.cursors) return;
         
         this.cleanupBullets();
