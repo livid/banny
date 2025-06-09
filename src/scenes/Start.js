@@ -521,6 +521,9 @@ export class Start extends Phaser.Scene {
 
         this.cursors = this.input.keyboard.createCursorKeys();
         
+        // Initialize WASD keys for alternative movement controls
+        this.wasdKeys = this.input.keyboard.addKeys('W,S,A,D');
+        
         // Set up gamepad input (check if gamepad plugin is available)
         if (this.input.gamepad) {
             this.input.gamepad.start();
@@ -2158,59 +2161,87 @@ export class Start extends Phaser.Scene {
         if (!this.isSpriteValid(this.player) || !this.cursors) return;
         
         const speed = 200;
-        let velocityX = 0;
-        let velocityY = 0;
         const deadzone = 0.3; // Deadzone for analog stick
         
-        // Keyboard movement (arrow keys and WASD)
-        if (this.cursors.left.isDown || this.input.keyboard.checkDown(this.input.keyboard.addKey('A'))) {
-            velocityX = -speed;
+        // Initialize movement vector
+        const movement = new Phaser.Math.Vector2(0, 0);
+        
+        // Keyboard movement - check for held keys using isDown property
+        // Horizontal movement
+        if (this.cursors.left.isDown || this.wasdKeys?.A?.isDown) {
+            movement.x -= 1;
             this.player.flipX = true;
-        } else if (this.cursors.right.isDown || this.input.keyboard.checkDown(this.input.keyboard.addKey('D'))) {
-            velocityX = speed;
+        }
+        if (this.cursors.right.isDown || this.wasdKeys?.D?.isDown) {
+            movement.x += 1;
             this.player.flipX = false;
         }
         
-        if (this.cursors.up.isDown || this.input.keyboard.checkDown(this.input.keyboard.addKey('W'))) {
-            velocityY = -speed;
-        } else if (this.cursors.down.isDown || this.input.keyboard.checkDown(this.input.keyboard.addKey('S'))) {
-            velocityY = speed;
+        // Vertical movement
+        if (this.cursors.up.isDown || this.wasdKeys?.W?.isDown) {
+            movement.y -= 1;
+        }
+        if (this.cursors.down.isDown || this.wasdKeys?.S?.isDown) {
+            movement.y += 1;
         }
         
-        // Gamepad movement (D-pad and left analog stick)
-        if (this.gamepad) {
-            // Check D-pad
+        // Gamepad movement (only if no keyboard input to avoid conflicts)
+        if (this.gamepad && movement.length() === 0) {
+            // D-pad input
             if (this.gamepad.left) {
-                velocityX = -speed;
+                movement.x -= 1;
                 this.player.flipX = true;
-            } else if (this.gamepad.right) {
-                velocityX = speed;
+            }
+            if (this.gamepad.right) {
+                movement.x += 1;
                 this.player.flipX = false;
             }
-            
             if (this.gamepad.up) {
-                velocityY = -speed;
-            } else if (this.gamepad.down) {
-                velocityY = speed;
+                movement.y -= 1;
+            }
+            if (this.gamepad.down) {
+                movement.y += 1;
             }
             
-            // Check left analog stick if no D-pad input
-            if (this.gamepad.leftStick && velocityX === 0 && velocityY === 0) {
-                const x = this.gamepad.leftStick.x;
-                const y = this.gamepad.leftStick.y;
+            // Left analog stick (if no D-pad input)
+            if (this.gamepad.leftStick && movement.length() === 0) {
+                const stickX = this.gamepad.leftStick.x;
+                const stickY = this.gamepad.leftStick.y;
                 
-                if (Math.abs(x) > deadzone) {
-                    velocityX = x * speed;
-                    this.player.flipX = x < 0;
+                // Apply deadzone
+                if (Math.abs(stickX) > deadzone) {
+                    movement.x = stickX;
+                    this.player.flipX = stickX < 0;
                 }
-                
-                if (Math.abs(y) > deadzone) {
-                    velocityY = y * speed;
+                if (Math.abs(stickY) > deadzone) {
+                    movement.y = stickY;
                 }
             }
         }
         
-        this.player.setVelocity(velocityX, velocityY);
+        // Normalize diagonal movement to maintain consistent speed
+        if (movement.length() > 1) {
+            movement.normalize();
+        }
+        
+        // Apply movement using delta time for smooth, frame-rate independent movement
+        if (movement.length() > 0) {
+            // Scale by speed and delta time (converted from ms to seconds)
+            const deltaTime = this.game.loop.delta / 1000;
+            movement.scale(speed * deltaTime);
+            
+            // Update player position directly for smoother movement
+            this.player.x += movement.x;
+            this.player.y += movement.y;
+            
+            // Update physics body position to match
+            if (this.player.body) {
+                this.player.body.updateFromGameObject();
+            }
+        } else {
+            // Stop any existing velocity when not moving
+            this.player.setVelocity(0, 0);
+        }
     }
 
     updateMonsterMovement() {
