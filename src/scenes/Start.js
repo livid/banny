@@ -464,7 +464,7 @@ export class Start extends Phaser.Scene {
         this.cameras.main.setZoom(1);
         
         // Use selected character sprite or default to first character
-        const characterSprite = this.selectedCharacter ? this.selectedCharacter.image.replace('.png', '') : '42161-4000000009-0x57a482ea32c7f75a9c0734206f5bd4f9bcb38e12';
+        const characterSprite = this.selectedCharacter ? this.selectedCharacter.image.replace('.png', '') : '42161-4000000009-transparent';
         this.player = this.physics.add.sprite(640, 360, characterSprite);
         this.player.setCollideWorldBounds(true);
         this.player.setScale(0.3);
@@ -474,7 +474,10 @@ export class Start extends Phaser.Scene {
         const playerHeight = this.player.height * 0.8;
         this.player.body.setSize(playerWidth, playerHeight);
         
-        this.cameras.main.startFollow(this.player, true, 0.05, 0.05);
+        // Improved camera follow settings to reduce flicker
+        this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
+        this.cameras.main.setRoundPixels(true); // Prevent subpixel rendering
+        this.cameras.main.setDeadzone(16, 16); // Add deadzone to prevent micro-movements
 
         // Create sandstorm effect for desert map
         this.createSandstormEffect();
