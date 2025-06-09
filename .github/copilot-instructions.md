@@ -1,3 +1,7 @@
+## Game
+
+This is a game created with Phaser 3 HTML5 game framework.
+
 ## Testing
 
 ```

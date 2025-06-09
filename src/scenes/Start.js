@@ -35,6 +35,10 @@ export class Start extends Phaser.Scene {
         this.currentHeldGamepadDirection = null; // Track held gamepad direction
         this.previousButtonStates = {}; // Track previous gamepad button states
         
+        // Power-up dialog keyboard support
+        this.powerUpKeyTimer = null; // Timer for keyboard repeat
+        this.currentHeldPowerUpKey = null; // Track held keyboard direction
+        
         // Damage system
         this.baseBulletDamage = 10; // Base damage for bullets
         
@@ -1129,6 +1133,13 @@ export class Start extends Phaser.Scene {
         }
         this.currentHeldGamepadDirection = null;
         this.previousButtonStates = {};
+        
+        // Clean up power-up dialog keyboard state
+        if (this.powerUpKeyTimer) {
+            this.powerUpKeyTimer.destroy();
+            this.powerUpKeyTimer = null;
+        }
+        this.currentHeldPowerUpKey = null;
     }
     
     updatePowerUpSelection() {
@@ -1226,6 +1237,96 @@ export class Start extends Phaser.Scene {
                 this.selectCurrentPowerUp();
             }
         }
+    }
+    
+    handlePowerUpKeyNavigation() {
+        if (!this.showingPowerUpDialog || this.availablePowerUpsData.length === 0) {
+            return;
+        }
+
+        let keyPressed = null;
+        let deltaIndex = 0;
+
+        // Check arrow keys
+        if (this.cursors.up.isDown) {
+            keyPressed = 'up';
+            deltaIndex = -1;
+        } else if (this.cursors.down.isDown) {
+            keyPressed = 'down';
+            deltaIndex = 1;
+        }
+
+        if (keyPressed) {
+            // If this is a new key press or different key
+            if (this.currentHeldPowerUpKey !== keyPressed) {
+                this.currentHeldPowerUpKey = keyPressed;
+                // Move immediately on first press
+                this.movePowerUpSelection(deltaIndex);
+                
+                // Clear any existing timer
+                if (this.powerUpKeyTimer) {
+                    this.powerUpKeyTimer.destroy();
+                }
+                
+                // Start repeat timer
+                this.powerUpKeyTimer = this.time.delayedCall(500, () => {
+                    this.startPowerUpKeyRepeat(deltaIndex);
+                });
+            }
+        } else {
+            // No arrow key is pressed, stop repeat
+            this.stopPowerUpKeyRepeat();
+        }
+        
+        // Handle Enter key selection
+        if (this.enterKey && Phaser.Input.Keyboard.JustDown(this.enterKey)) {
+            console.log('Enter key pressed - selecting power-up');
+            this.selectCurrentPowerUp();
+        }
+    }
+    
+    startPowerUpKeyRepeat(deltaIndex) {
+        // Clear existing repeat timer
+        if (this.powerUpKeyTimer) {
+            this.powerUpKeyTimer.destroy();
+        }
+        
+        // Create repeating timer
+        this.powerUpKeyTimer = this.time.addEvent({
+            delay: 150,
+            callback: () => {
+                // Only continue if the key is still held down
+                if (this.currentHeldPowerUpKey && this.isPowerUpKeyStillDown()) {
+                    this.movePowerUpSelection(deltaIndex);
+                } else {
+                    this.stopPowerUpKeyRepeat();
+                }
+            },
+            loop: true
+        });
+    }
+    
+    isPowerUpKeyStillDown() {
+        if (!this.cursors) {
+            return false;
+        }
+        
+        switch (this.currentHeldPowerUpKey) {
+            case 'up':
+                return this.cursors.up.isDown;
+            case 'down':
+                return this.cursors.down.isDown;
+            default:
+                return false;
+        }
+    }
+    
+    stopPowerUpKeyRepeat() {
+        if (this.powerUpKeyTimer) {
+            this.powerUpKeyTimer.destroy();
+            this.powerUpKeyTimer = null;
+        }
+        this.currentHeldPowerUpKey = null;
     }
     
     movePowerUpSelection(deltaIndex) {
@@ -1364,6 +1465,13 @@ export class Start extends Phaser.Scene {
         this.availablePowerUpsData = [];
         this.currentHeldGamepadDirection = null;
         this.previousButtonStates = {};
+        
+        // Clean up power-up dialog keyboard state
+        if (this.powerUpKeyTimer) {
+            this.powerUpKeyTimer.destroy();
+            this.powerUpKeyTimer = null;
+        }
+        this.currentHeldPowerUpKey = null;
         
         // Clean up enter key only when shutting down
         if (this.enterKey) {
@@ -2026,6 +2134,7 @@ export class Start extends Phaser.Scene {
         // Handle power-up dialog gamepad input when dialog is showing
         if (this.showingPowerUpDialog) {
             this.handlePowerUpGamepadNavigation();
+            this.handlePowerUpKeyNavigation();
             return;
         }
         
