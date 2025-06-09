@@ -28,6 +28,13 @@ export class Start extends Phaser.Scene {
         this.bulletSizeUpgradeCount = 0; // Track number of bullet size upgrades
         this.showingPowerUpDialog = false;
         
+        // Power-up dialog gamepad support
+        this.selectedPowerUpIndex = 0; // Currently selected power-up option (0-based)
+        this.availablePowerUpsData = []; // Store available power-ups for gamepad navigation
+        this.powerUpGamepadTimer = null; // Timer for gamepad repeat
+        this.currentHeldGamepadDirection = null; // Track held gamepad direction
+        this.previousButtonStates = {}; // Track previous gamepad button states
+        
         // Damage system
         this.baseBulletDamage = 10; // Base damage for bullets
         
@@ -48,6 +55,9 @@ export class Start extends Phaser.Scene {
         
         // Scene transition management
         this.sceneTransitioning = false; // Flag to prevent updates during scene transitions
+        
+        // Gamepad support
+        this.gamepad = null;
     }
 
     // Centralized safety utility methods
@@ -225,6 +235,16 @@ export class Start extends Phaser.Scene {
         }
         this.sandstormIntensity = 0.5;
         this.sandstormDirection = 0;
+        
+        // Reset gamepad state
+        this.gamepad = null;
+        
+        // Reset power-up dialog gamepad state
+        this.selectedPowerUpIndex = 0;
+        this.availablePowerUpsData = [];
+        this.powerUpGamepadTimer = null;
+        this.currentHeldGamepadDirection = null;
+        this.previousButtonStates = {};
     }
 
     preload() {
@@ -486,6 +506,29 @@ export class Start extends Phaser.Scene {
         this.createExperienceBar();
 
         this.cursors = this.input.keyboard.createCursorKeys();
+        
+        // Set up gamepad input (check if gamepad plugin is available)
+        if (this.input.gamepad) {
+            this.input.gamepad.start();
+            this.input.gamepad.on('connected', (pad) => {
+                console.log('Gamepad connected to Start scene:', pad.id);
+                this.gamepad = pad;
+            });
+            this.input.gamepad.on('disconnected', (pad) => {
+                console.log('Gamepad disconnected from Start scene:', pad.id);
+                if (this.gamepad === pad) {
+                    this.gamepad = null;
+                }
+            });
+            
+            // Check if gamepad is already connected
+            if (this.input.gamepad.total > 0) {
+                this.gamepad = this.input.gamepad.getPad(0);
+                console.log('Gamepad already connected in Start scene:', this.gamepad?.id);
+            }
+        } else {
+            console.warn('Gamepad plugin not available in Start scene');
+        }
 
         // Add bullet group
         this.bullets = this.physics.add.group();
@@ -811,7 +854,7 @@ export class Start extends Phaser.Scene {
         this.powerUpTitle = this.add.text(
             this.cameras.main.centerX, 
             this.cameras.main.centerY - 120, 
-            'LEVEL UP!\nChoose a Power-Up:', 
+            'LEVEL UP!\nChoose a Power-Up:\n(Keys 1-3, D-pad/Stick + B button)', 
             {
                 fontSize: '24px',
                 fill: '#ffffff',
@@ -888,10 +931,20 @@ export class Start extends Phaser.Scene {
         const maxOptions = Math.min(3, availablePowerUps.length);
         const selectedPowerUps = Phaser.Utils.Array.Shuffle(availablePowerUps).slice(0, maxOptions);
         
+        // Store for gamepad navigation
+        this.availablePowerUpsData = selectedPowerUps;
+        this.selectedPowerUpIndex = 0; // Reset to first option
+        
         // Create power-up options with sequential numbering
         selectedPowerUps.forEach((powerUp, index) => {
             this.createPowerUpOption(index + 1, powerUp.title, powerUp.description, powerUp.type);
         });
+        
+        // Initialize gamepad button states for power-up dialog
+        this.previousButtonStates = {};
+        
+        // Update visual highlight for gamepad navigation
+        this.updatePowerUpSelection();
     }
     
     createPowerUpOption(index, title, description, powerUpType) {
@@ -944,13 +997,19 @@ export class Start extends Phaser.Scene {
         if (!this.powerUpKeys) this.powerUpKeys = [];
         this.powerUpElements.push(optionBg, optionText, descText);
         
+        // Store option background for gamepad selection highlighting
+        optionBg.powerUpIndex = index - 1; // Store 0-based index for gamepad navigation
+        
         // Add hover effects
         optionBg.on('pointerover', () => {
             optionBg.setFillStyle(0x666666);
         });
         
         optionBg.on('pointerout', () => {
-            optionBg.setFillStyle(0x555555);
+            // Only reset color if not selected via gamepad
+            if (this.selectedPowerUpIndex !== optionBg.powerUpIndex) {
+                optionBg.setFillStyle(0x555555);
+            }
         });
         
         // Add click handler
@@ -1053,6 +1112,187 @@ export class Start extends Phaser.Scene {
             });
             this.powerUpKeys = [];
         }
+        
+        // Clean up power-up dialog gamepad state
+        this.selectedPowerUpIndex = 0;
+        this.availablePowerUpsData = [];
+        if (this.powerUpGamepadTimer) {
+            this.powerUpGamepadTimer.destroy();
+            this.powerUpGamepadTimer = null;
+        }
+        this.currentHeldGamepadDirection = null;
+        this.previousButtonStates = {};
+    }
+    
+    updatePowerUpSelection() {
+        if (!this.powerUpElements || this.powerUpElements.length === 0) return;
+        
+        // Update visual highlighting for all power-up options
+        this.powerUpElements.forEach((element, elementIndex) => {
+            // Only process background rectangles (every 3rd element: bg, text, desc)
+            if (elementIndex % 3 === 0) {
+                const optionBg = element;
+                const optionIndex = Math.floor(elementIndex / 3);
+                
+                if (optionIndex === this.selectedPowerUpIndex) {
+                    // Highlight selected option
+                    optionBg.setFillStyle(0x888888);
+                    optionBg.setStrokeStyle(3, 0xffff00); // Yellow border for selected
+                } else {
+                    // Reset non-selected options
+                    optionBg.setFillStyle(0x555555);
+                    optionBg.setStrokeStyle(2, 0x888888); // Default border
+                }
+            }
+        });
+    }
+    
+    handlePowerUpGamepadNavigation() {
+        if (!this.gamepad || !this.showingPowerUpDialog || this.availablePowerUpsData.length === 0) {
+            return;
+        }
+
+        let directionPressed = null;
+        let deltaIndex = 0;
+        const deadzone = 0.3;
+
+        // Check D-pad
+        if (this.gamepad.up) {
+            directionPressed = 'up';
+            deltaIndex = -1;
+        } else if (this.gamepad.down) {
+            directionPressed = 'down';
+            deltaIndex = 1;
+        }
+        // Check left analog stick if no D-pad input
+        else if (this.gamepad.leftStick) {
+            const y = this.gamepad.leftStick.y;
+            
+            if (Math.abs(y) > deadzone) {
+                if (y < -deadzone) {
+                    directionPressed = 'up';
+                    deltaIndex = -1;
+                } else if (y > deadzone) {
+                    directionPressed = 'down';
+                    deltaIndex = 1;
+                }
+            }
+        }
+
+        if (directionPressed) {
+            // If this is a new direction or different direction
+            if (this.currentHeldGamepadDirection !== directionPressed) {
+                this.currentHeldGamepadDirection = directionPressed;
+                // Move immediately on first press
+                this.movePowerUpSelection(deltaIndex);
+                
+                // Clear any existing timer
+                if (this.powerUpGamepadTimer) {
+                    this.powerUpGamepadTimer.destroy();
+                }
+                
+                // Start repeat timer
+                this.powerUpGamepadTimer = this.time.delayedCall(500, () => {
+                    this.startPowerUpGamepadRepeat(deltaIndex);
+                });
+            }
+        } else {
+            // No direction is pressed, stop repeat
+            this.stopPowerUpGamepadRepeat();
+        }
+        
+        // Handle gamepad selection (button 0 = B button)
+        if (this.gamepad.buttons) {
+            const button0 = this.gamepad.buttons[0];
+            
+            // Manual justDown detection
+            const button0WasPressed = this.previousButtonStates[0] || false;
+            const button0IsPressed = button0 && button0.pressed;
+            const button0JustPressed = button0IsPressed && !button0WasPressed;
+            
+            // Update previous state
+            this.previousButtonStates[0] = button0IsPressed;
+            
+            // Check for button press
+            if (button0JustPressed || (button0 && button0.justDown)) {
+                console.log('Gamepad B button (button 0) pressed - selecting power-up');
+                this.selectCurrentPowerUp();
+            }
+        }
+    }
+    
+    movePowerUpSelection(deltaIndex) {
+        if (this.availablePowerUpsData.length === 0) return;
+        
+        this.selectedPowerUpIndex += deltaIndex;
+        
+        // Wrap around
+        if (this.selectedPowerUpIndex < 0) {
+            this.selectedPowerUpIndex = this.availablePowerUpsData.length - 1;
+        } else if (this.selectedPowerUpIndex >= this.availablePowerUpsData.length) {
+            this.selectedPowerUpIndex = 0;
+        }
+        
+        console.log(`Power-up selection moved to index: ${this.selectedPowerUpIndex}`);
+        this.updatePowerUpSelection();
+    }
+    
+    startPowerUpGamepadRepeat(deltaIndex) {
+        // Clear existing repeat timer
+        if (this.powerUpGamepadTimer) {
+            this.powerUpGamepadTimer.destroy();
+        }
+        
+        // Create repeating timer
+        this.powerUpGamepadTimer = this.time.addEvent({
+            delay: 150,
+            callback: () => {
+                // Only continue if the direction is still held down
+                if (this.currentHeldGamepadDirection && this.isPowerUpGamepadDirectionStillDown()) {
+                    this.movePowerUpSelection(deltaIndex);
+                } else {
+                    this.stopPowerUpGamepadRepeat();
+                }
+            },
+            loop: true
+        });
+    }
+    
+    isPowerUpGamepadDirectionStillDown() {
+        if (!this.gamepad) {
+            return false;
+        }
+        
+        const deadzone = 0.3;
+        
+        switch (this.currentHeldGamepadDirection) {
+            case 'up':
+                return this.gamepad.up || (this.gamepad.leftStick && this.gamepad.leftStick.y < -deadzone);
+            case 'down':
+                return this.gamepad.down || (this.gamepad.leftStick && this.gamepad.leftStick.y > deadzone);
+            default:
+                return false;
+        }
+    }
+    
+    stopPowerUpGamepadRepeat() {
+        if (this.powerUpGamepadTimer) {
+            this.powerUpGamepadTimer.destroy();
+            this.powerUpGamepadTimer = null;
+        }
+        this.currentHeldGamepadDirection = null;
+    }
+    
+    selectCurrentPowerUp() {
+        if (this.availablePowerUpsData.length === 0 || 
+            this.selectedPowerUpIndex < 0 || 
+            this.selectedPowerUpIndex >= this.availablePowerUpsData.length) {
+            return;
+        }
+        
+        const selectedPowerUp = this.availablePowerUpsData[this.selectedPowerUpIndex];
+        console.log(`Selecting power-up via gamepad: ${selectedPowerUp.title} (type: ${selectedPowerUp.type})`);
+        this.selectPowerUp(selectedPowerUp.type);
     }
 
     onPlayerHitMonster(player, monster) {
@@ -1104,6 +1344,19 @@ export class Start extends Phaser.Scene {
             // Keep music playing for character selection
             console.log('Keeping background music playing');
         }
+        
+        // Clean up gamepad state
+        this.gamepad = null;
+        
+        // Clean up power-up dialog gamepad state
+        if (this.powerUpGamepadTimer) {
+            this.powerUpGamepadTimer.destroy();
+            this.powerUpGamepadTimer = null;
+        }
+        this.selectedPowerUpIndex = 0;
+        this.availablePowerUpsData = [];
+        this.currentHeldGamepadDirection = null;
+        this.previousButtonStates = {};
         
         // Clean up enter key only when shutting down
         if (this.enterKey) {
@@ -1717,7 +1970,13 @@ export class Start extends Phaser.Scene {
     }
 
     update() {
-        if (!this.isGameActive() || this.showingPowerUpDialog) return;
+        if (!this.isGameActive()) return;
+        
+        // Handle power-up dialog gamepad input when dialog is showing
+        if (this.showingPowerUpDialog) {
+            this.handlePowerUpGamepadNavigation();
+            return;
+        }
         
         // Handle game over state
         if (this.gameOver) {
@@ -1746,7 +2005,9 @@ export class Start extends Phaser.Scene {
         const speed = 200;
         let velocityX = 0;
         let velocityY = 0;
+        const deadzone = 0.3; // Deadzone for analog stick
         
+        // Keyboard movement (arrow keys and WASD)
         if (this.cursors.left.isDown || this.input.keyboard.checkDown(this.input.keyboard.addKey('A'))) {
             velocityX = -speed;
             this.player.flipX = true;
@@ -1759,6 +2020,39 @@ export class Start extends Phaser.Scene {
             velocityY = -speed;
         } else if (this.cursors.down.isDown || this.input.keyboard.checkDown(this.input.keyboard.addKey('S'))) {
             velocityY = speed;
+        }
+        
+        // Gamepad movement (D-pad and left analog stick)
+        if (this.gamepad) {
+            // Check D-pad
+            if (this.gamepad.left) {
+                velocityX = -speed;
+                this.player.flipX = true;
+            } else if (this.gamepad.right) {
+                velocityX = speed;
+                this.player.flipX = false;
+            }
+            
+            if (this.gamepad.up) {
+                velocityY = -speed;
+            } else if (this.gamepad.down) {
+                velocityY = speed;
+            }
+            
+            // Check left analog stick if no D-pad input
+            if (this.gamepad.leftStick && velocityX === 0 && velocityY === 0) {
+                const x = this.gamepad.leftStick.x;
+                const y = this.gamepad.leftStick.y;
+                
+                if (Math.abs(x) > deadzone) {
+                    velocityX = x * speed;
+                    this.player.flipX = x < 0;
+                }
+                
+                if (Math.abs(y) > deadzone) {
+                    velocityY = y * speed;
+                }
+            }
         }
         
         this.player.setVelocity(velocityX, velocityY);

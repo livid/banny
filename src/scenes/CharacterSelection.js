@@ -29,6 +29,15 @@ export class CharacterSelection extends Phaser.Scene {
         this.instructionsText = null;
         // Character selection tracking
         this.selectionCountsKey = 'bannyCharacterSelectionCounts';
+        // Gamepad support
+        this.gamepad = null;
+        this.gamepadRepeatTimer = null;
+        this.gamepadRepeatDelay = 500;
+        this.gamepadRepeatRate = 150;
+        this.currentHeldGamepadDirection = null;
+        this.lastButtonPressed = false;
+        // Track previous button states for manual justDown detection
+        this.previousButtonStates = {};
     }
 
     init() {
@@ -44,6 +53,12 @@ export class CharacterSelection extends Phaser.Scene {
         // Reset key repeat state
         this.keyRepeatTimer = null;
         this.currentHeldKey = null;
+        
+        // Reset gamepad repeat state
+        this.gamepad = null;
+        this.gamepadRepeatTimer = null;
+        this.currentHeldGamepadDirection = null;
+        this.previousButtonStates = {};
         
         // Clear any existing text objects to prevent canvas context issues
         if (this.pageText) {
@@ -138,8 +153,8 @@ export class CharacterSelection extends Phaser.Scene {
         this.createCharacterGrid();
 
         // Add instructions
-        this.instructionsText = this.add.text(this.cameras.main.centerX, this.cameras.main.height - 80, 'Use ARROW KEYS to navigate • Q/E for pages • ENTER to select\nCharacters ordered by usage frequency', {
-            fontSize: '20px',
+        this.instructionsText = this.add.text(this.cameras.main.centerX, this.cameras.main.height - 80, 'Use ARROW KEYS or D-PAD/LEFT STICK to navigate • Q/E for pages • ENTER/B/START to select\nCharacters ordered by usage frequency', {
+            fontSize: '18px',
             fill: '#ffffff',
             stroke: '#000000',
             strokeThickness: 2,
@@ -169,7 +184,35 @@ export class CharacterSelection extends Phaser.Scene {
         this.pageLeftKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Q);
         this.pageRightKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
         
+        // Set up gamepad input (check if gamepad plugin is available)
+        if (this.input.gamepad) {
+            this.input.gamepad.start();
+            this.input.gamepad.on('connected', (pad) => {
+                console.log('Gamepad connected:', pad.id);
+                console.log('Available buttons:', pad.buttons ? pad.buttons.length : 'No buttons array');
+                console.log('Gamepad object:', pad);
+                this.gamepad = pad;
+            });
+            this.input.gamepad.on('disconnected', (pad) => {
+                console.log('Gamepad disconnected:', pad.id);
+                if (this.gamepad === pad) {
+                    this.gamepad = null;
+                    this.stopGamepadRepeat();
+                }
+            });
+            
+            // Check if gamepad is already connected
+            if (this.input.gamepad.total > 0) {
+                this.gamepad = this.input.gamepad.getPad(0);
+                console.log('Gamepad already connected:', this.gamepad?.id);
+                console.log('Available buttons:', this.gamepad?.buttons ? this.gamepad.buttons.length : 'No buttons array');
+            }
+        } else {
+            console.warn('Gamepad plugin not available');
+        }
+        
         console.log('Setting up keyboard input with cursor keys, Q/E for pages, and ENTER');
+        console.log('Controller support: D-pad/Left stick for navigation, B/Start for selection');
 
         // Ensure background music is playing
         let globalBackgroundMusic = this.registry.get('backgroundMusic');
@@ -192,6 +235,25 @@ export class CharacterSelection extends Phaser.Scene {
 
         // Initial selection highlight
         this.updateSelection();
+        
+        // Add periodic gamepad debug logging
+        this.time.addEvent({
+            delay: 2000,
+            callback: () => {
+                if (this.gamepad) {
+                    console.log('Gamepad status check:', {
+                        id: this.gamepad.id,
+                        connected: this.gamepad.connected,
+                        buttonsLength: this.gamepad.buttons?.length,
+                        axesLength: this.gamepad.axes?.length,
+                        timestamp: this.gamepad.timestamp
+                    });
+                } else {
+                    console.log('No gamepad detected');
+                }
+            },
+            loop: true
+        });
     }
 
     // Character selection tracking methods
@@ -266,6 +328,36 @@ export class CharacterSelection extends Phaser.Scene {
         // Handle arrow key navigation with repeat support
         this.handleKeyNavigation();
         
+        // Handle gamepad navigation
+        this.handleGamepadNavigation();
+        
+        // Debug: Log any gamepad input activity
+        if (this.gamepad) {
+            // Check if gamepad object exists and has expected properties
+            if (!this.gamepad.buttons && !this.gamepad.axes) {
+                console.log('Gamepad connected but no buttons/axes detected');
+            }
+            
+            // Log any button activity
+            if (this.gamepad.buttons) {
+                for (let i = 0; i < this.gamepad.buttons.length; i++) {
+                    const button = this.gamepad.buttons[i];
+                    if (button && (button.pressed || button.justDown || button.value > 0)) {
+                        console.log(`Gamepad button ${i}: pressed=${button.pressed}, justDown=${button.justDown}, value=${button.value}`);
+                    }
+                }
+            }
+            
+            // Log any axis activity
+            if (this.gamepad.axes) {
+                for (let i = 0; i < this.gamepad.axes.length; i++) {
+                    if (Math.abs(this.gamepad.axes[i]) > 0.1) {
+                        console.log(`Gamepad axis ${i}: ${this.gamepad.axes[i]}`);
+                    }
+                }
+            }
+        }
+        
         // Handle page navigation (Q/E keys)
         if (Phaser.Input.Keyboard.JustDown(this.pageLeftKey)) {
             console.log('Q pressed - previous page');
@@ -276,10 +368,59 @@ export class CharacterSelection extends Phaser.Scene {
             this.changePage(1);
         }
         
-        // Handle character selection
+        // Handle character selection (keyboard and gamepad)
         if (Phaser.Input.Keyboard.JustDown(this.enterKey)) {
             console.log('Enter key pressed - selecting character');
             this.selectCharacter();
+        }
+        
+        // Handle gamepad selection (B button or Start button)
+        if (this.gamepad) {
+            // Check for specific button presses based on your controller mapping
+            if (this.gamepad.buttons) {
+                // Button 0 = B button on your controller
+                const button0 = this.gamepad.buttons[0];
+                const button9 = this.gamepad.buttons[9];
+                
+                // Manual justDown detection for button 0
+                const button0WasPressed = this.previousButtonStates[0] || false;
+                const button0IsPressed = button0 && button0.pressed;
+                const button0JustPressed = button0IsPressed && !button0WasPressed;
+                
+                // Manual justDown detection for button 9
+                const button9WasPressed = this.previousButtonStates[9] || false;
+                const button9IsPressed = button9 && button9.pressed;
+                const button9JustPressed = button9IsPressed && !button9WasPressed;
+                
+                // Update previous states
+                this.previousButtonStates[0] = button0IsPressed;
+                this.previousButtonStates[9] = button9IsPressed;
+                
+                // Check for button presses
+                if (button0JustPressed || (button0 && button0.justDown)) {
+                    console.log('Gamepad B button (button 0) pressed - selecting character');
+                    this.selectCharacter();
+                }
+                if (button9JustPressed || (button9 && button9.justDown)) {
+                    console.log('Gamepad Start button (button 9) pressed - selecting character');
+                    this.selectCharacter();
+                }
+                
+                // Debug logging for button states
+                if (button0IsPressed || button9IsPressed) {
+                    console.log(`Button states - 0: ${button0IsPressed} (was: ${button0WasPressed}), 9: ${button9IsPressed} (was: ${button9WasPressed})`);
+                }
+            }
+            
+            // Also try direct property access for common buttons (fallback)
+            if (this.gamepad.A && this.gamepad.A.justDown) {
+                console.log('Gamepad A button (direct) pressed - selecting character');
+                this.selectCharacter();
+            }
+            if (this.gamepad.B && this.gamepad.B.justDown) {
+                console.log('Gamepad B button (direct) pressed - selecting character');
+                this.selectCharacter();
+            }
         }
     }
 
@@ -363,6 +504,130 @@ export class CharacterSelection extends Phaser.Scene {
             this.keyRepeatTimer = null;
         }
         this.currentHeldKey = null;
+    }
+
+    handleGamepadNavigation() {
+        if (!this.gamepad) {
+            return;
+        }
+
+        let directionPressed = null;
+        let deltaCol = 0;
+        let deltaRow = 0;
+        const deadzone = 0.3; // Deadzone for analog stick
+
+        // Check D-pad
+        if (this.gamepad.left) {
+            directionPressed = 'left';
+            deltaCol = -1;
+        } else if (this.gamepad.right) {
+            directionPressed = 'right';
+            deltaCol = 1;
+        } else if (this.gamepad.up) {
+            directionPressed = 'up';
+            deltaRow = -1;
+        } else if (this.gamepad.down) {
+            directionPressed = 'down';
+            deltaRow = 1;
+        }
+        // Check left analog stick if no D-pad input
+        else if (this.gamepad.leftStick) {
+            const x = this.gamepad.leftStick.x;
+            const y = this.gamepad.leftStick.y;
+            
+            if (Math.abs(x) > deadzone || Math.abs(y) > deadzone) {
+                // Determine primary direction
+                if (Math.abs(x) > Math.abs(y)) {
+                    if (x > deadzone) {
+                        directionPressed = 'right';
+                        deltaCol = 1;
+                    } else if (x < -deadzone) {
+                        directionPressed = 'left';
+                        deltaCol = -1;
+                    }
+                } else {
+                    if (y > deadzone) {
+                        directionPressed = 'down';
+                        deltaRow = 1;
+                    } else if (y < -deadzone) {
+                        directionPressed = 'up';
+                        deltaRow = -1;
+                    }
+                }
+            }
+        }
+
+        if (directionPressed) {
+            // If this is a new direction or different direction
+            if (this.currentHeldGamepadDirection !== directionPressed) {
+                this.currentHeldGamepadDirection = directionPressed;
+                // Move immediately on first press
+                this.moveSelection(deltaCol, deltaRow);
+                
+                // Clear any existing timer
+                if (this.gamepadRepeatTimer) {
+                    this.gamepadRepeatTimer.destroy();
+                }
+                
+                // Start repeat timer
+                this.gamepadRepeatTimer = this.time.delayedCall(this.gamepadRepeatDelay, () => {
+                    this.startGamepadRepeat(deltaCol, deltaRow);
+                });
+            }
+        } else {
+            // No direction is pressed, stop repeat
+            this.stopGamepadRepeat();
+        }
+    }
+
+    startGamepadRepeat(deltaCol, deltaRow) {
+        // Clear existing repeat timer
+        if (this.gamepadRepeatTimer) {
+            this.gamepadRepeatTimer.destroy();
+        }
+        
+        // Create repeating timer
+        this.gamepadRepeatTimer = this.time.addEvent({
+            delay: this.gamepadRepeatRate,
+            callback: () => {
+                // Only continue if the direction is still held down
+                if (this.currentHeldGamepadDirection && this.isGamepadDirectionStillDown()) {
+                    this.moveSelection(deltaCol, deltaRow);
+                } else {
+                    this.stopGamepadRepeat();
+                }
+            },
+            loop: true
+        });
+    }
+
+    isGamepadDirectionStillDown() {
+        if (!this.gamepad) {
+            return false;
+        }
+        
+        const deadzone = 0.3;
+        
+        switch (this.currentHeldGamepadDirection) {
+            case 'left':
+                return this.gamepad.left || (this.gamepad.leftStick && this.gamepad.leftStick.x < -deadzone);
+            case 'right':
+                return this.gamepad.right || (this.gamepad.leftStick && this.gamepad.leftStick.x > deadzone);
+            case 'up':
+                return this.gamepad.up || (this.gamepad.leftStick && this.gamepad.leftStick.y < -deadzone);
+            case 'down':
+                return this.gamepad.down || (this.gamepad.leftStick && this.gamepad.leftStick.y > deadzone);
+            default:
+                return false;
+        }
+    }
+
+    stopGamepadRepeat() {
+        if (this.gamepadRepeatTimer) {
+            this.gamepadRepeatTimer.destroy();
+            this.gamepadRepeatTimer = null;
+        }
+        this.currentHeldGamepadDirection = null;
     }
 
     createCharacterGrid() {
@@ -567,7 +832,17 @@ export class CharacterSelection extends Phaser.Scene {
     }
 
     selectCharacter() {
+        console.log('selectCharacter() method called');
+        console.log('Selected index:', this.selectedIndex);
+        console.log('Characters data length:', this.charactersData?.length);
+        
         const selectedCharacter = this.charactersData[this.selectedIndex];
+        console.log('Selected character:', selectedCharacter);
+        
+        if (!selectedCharacter) {
+            console.error('No character found at index', this.selectedIndex);
+            return;
+        }
         
         // Increment selection count in localStorage
         this.incrementSelectionCount(selectedCharacter.nft_id);
@@ -581,17 +856,25 @@ export class CharacterSelection extends Phaser.Scene {
             strokeThickness: 2
         }).setOrigin(0.5, 0.5);
         
+        console.log('Added confirmation text, storing character in registry...');
+        
         // Store selected character data globally
         this.registry.set('selectedCharacter', selectedCharacter);
         
+        console.log('Starting scene transition in 500ms...');
+        
         // Small delay before transitioning to make selection feel responsive
         this.time.delayedCall(500, () => {
+            console.log('Scene transition delay complete, starting Start scene...');
+            
             // Set transitioning flag on current Start scene if it exists
             const currentStartScene = this.scene.get('Start');
             if (currentStartScene && currentStartScene.scene.isActive()) {
+                console.log('Setting transitioning flag on Start scene');
                 currentStartScene.sceneTransitioning = true;
             }
             
+            console.log('Calling this.scene.start("Start")');
             this.scene.start('Start');
         });
     }
@@ -599,6 +882,9 @@ export class CharacterSelection extends Phaser.Scene {
     shutdown() {
         // Clean up key repeat timer
         this.stopKeyRepeat();
+        
+        // Clean up gamepad repeat timer
+        this.stopGamepadRepeat();
         
         // Clean up text objects to prevent canvas context issues
         if (this.pageText) {
