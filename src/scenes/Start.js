@@ -256,6 +256,9 @@ export class Start extends Phaser.Scene {
         
         // Load characters data 
         this.load.json('characters-data', 'assets/characters/characters.json');
+        
+        // Load difficulty configuration
+        this.load.json('difficulty-data', 'assets/meta/difficulty.json');
 
         // Note: Monster sprites will be loaded dynamically based on selected map
         
@@ -386,6 +389,10 @@ export class Start extends Phaser.Scene {
     }
     
     initializeGame() {
+        // Set initial spawn delay from difficulty configuration
+        const difficultyData = this.cache.json.get('difficulty-data');
+        this.currentSpawnDelay = difficultyData.spawnDelay.maxDelay;
+        
         // Get selected character data
         this.selectedCharacter = this.registry.get('selectedCharacter');
         if (this.selectedCharacter) {
@@ -1408,7 +1415,11 @@ export class Start extends Phaser.Scene {
         this.maxHealth = this.selectedCharacter ? (this.selectedCharacter.health || 100) : 100;
         this.health = this.maxHealth;
         this.gameOver = false;
-        this.currentSpawnDelay = 500;
+        
+        // Get initial spawn delay from difficulty configuration
+        const difficultyData = this.cache.json.get('difficulty-data');
+        this.currentSpawnDelay = difficultyData.spawnDelay.maxDelay;
+        
         this.lastShotTime = 0;
         this.lastBoomerangTime = 0;
         this.lastBigBoomTime = 0;
@@ -1792,11 +1803,13 @@ export class Start extends Phaser.Scene {
     }
 
     calculateSpawnDelay() {
-        // Gradually reduce delay from 500ms to 50ms based on score
-        // At score 0: 500ms, at score 500+: 10ms
-        const minDelay = 10;
-        const maxDelay = 500;
-        const scoreThreshold = 500; // Score needed to reach minimum delay
+        // Get difficulty configuration from loaded JSON
+        const difficultyData = this.cache.json.get('difficulty-data');
+        const spawnConfig = difficultyData.spawnDelay;
+        
+        const minDelay = spawnConfig.minDelay;
+        const maxDelay = spawnConfig.maxDelay;
+        const scoreThreshold = spawnConfig.scoreThreshold;
         
         const progress = Math.min(this.score / scoreThreshold, 1);
         return Math.max(minDelay, maxDelay - (maxDelay - minDelay) * progress);

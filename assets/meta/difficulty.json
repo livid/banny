@@ -1,0 +1,11 @@
+{
+  "spawnDelay": {
+    "minDelay": 50,
+    "maxDelay": 800,
+    "scoreThreshold": 1000,
+    "description": "Controls monster spawn rate based on score. minDelay: fastest spawn rate, maxDelay: slowest spawn rate, scoreThreshold: score needed to reach minimum delay"
+  },
+  "difficulty": {
+    "description": "Additional difficulty settings can be added here in the future"
+  }
+}
