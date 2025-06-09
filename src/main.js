@@ -14,6 +14,9 @@ const config = {
         CharacterSelection,
         Start
     ],
+    input: {
+        gamepad: true
+    },
     physics: {
         default: 'arcade',
         arcade: {
