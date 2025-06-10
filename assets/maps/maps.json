@@ -1,6 +1,7 @@
 {
     "Desert": {
         "name": "Desert",
+        "enabled": true,
         "tiledJson": {
             "key": "desert-map",
             "file": "Desert.json"
@@ -39,6 +40,7 @@
     },
     "Maze": {
         "name": "Maze",
+        "enabled": false,
         "tiledJson": {
             "key": "maze-map",
             "file": "Maze.json"

@@ -291,11 +291,21 @@ export class Start extends Phaser.Scene {
     }
     
     loadMapAssets() {
-        // Randomly select a map
+        // Randomly select a map from enabled maps only
         const mapsData = this.cache.json.get('maps-data');
-        const mapNames = Object.keys(mapsData);
-        const randomMapName = Phaser.Utils.Array.GetRandom(mapNames);
-        this.selectedMap = mapsData[randomMapName];
+        const enabledMapNames = Object.keys(mapsData).filter(mapName => mapsData[mapName].enabled === true);
+        
+        console.log('Available maps:', Object.keys(mapsData));
+        console.log('Enabled maps:', enabledMapNames);
+        
+        if (enabledMapNames.length === 0) {
+            console.error('No enabled maps found! Using first available map as fallback.');
+            const allMapNames = Object.keys(mapsData);
+            this.selectedMap = mapsData[allMapNames[0]];
+        } else {
+            const randomMapName = Phaser.Utils.Array.GetRandom(enabledMapNames);
+            this.selectedMap = mapsData[randomMapName];
+        }
         
         console.log('Selected map:', this.selectedMap.name);
         
