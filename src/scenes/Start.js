@@ -27,6 +27,8 @@ export class Start extends Phaser.Scene {
         this.bulletScale = 1.0; // Bullet size scale (1.0 - 4.0)
         this.bulletSizeUpgradeCount = 0; // Track number of bullet size upgrades
         this.showingPowerUpDialog = false;
+        this.regenerationRate = 0; // Health regeneration per second (0-2)
+        this.lastRegenerationTime = 0; // Track last regeneration tick
         
         // Power-up dialog gamepad support
         this.selectedPowerUpIndex = 0; // Currently selected power-up option (0-based)
@@ -208,11 +210,13 @@ export class Start extends Phaser.Scene {
         this.lastShotTime = 0;
         this.lastBoomerangTime = 0;
         this.lastBigBoomTime = 0;
+        this.lastRegenerationTime = 0;
         this.experience = 0;
         this.level = 1;
         this.boomerangCount = 0;
         this.bigBoomCount = 0;
         this.bulletScale = 1.0;
+        this.regenerationRate = 0;
         this.showingPowerUpDialog = false;
         
         // Reset session timer
@@ -722,9 +726,11 @@ export class Start extends Phaser.Scene {
         this.healthBar.setDepth(1001);
 
         // Health text
-        this.healthText = this.add.text(x + barWidth/2, y + barHeight/2, `${this.health}/${this.maxHealth}`, {
+        this.healthText = this.add.text(x + barWidth/2, y + barHeight/2, `${this.health.toFixed(2)}/${this.maxHealth.toFixed(2)}`, {
             fontSize: '14px',
-            fill: '#000000'
+            fill: '#ffffff',
+            stroke: '#000000',
+            strokeThickness: 2
         });
         this.healthText.setOrigin(0.5, 0.5);
         this.healthText.setScrollFactor(0);
@@ -735,7 +741,7 @@ export class Start extends Phaser.Scene {
         const healthPercent = this.health / this.maxHealth;
         const barWidth = 200;
         this.healthBar.width = barWidth * healthPercent;
-        this.healthText.setText(`${this.health}/${this.maxHealth}`);
+        this.healthText.setText(`${this.health.toFixed(2)}/${this.maxHealth.toFixed(2)}`);
     }
 
     // Calculate experience required for a given level
@@ -953,6 +959,16 @@ export class Start extends Phaser.Scene {
                 type: 5
             });
         }
+
+        // Add regeneration option if not at max (2.0 per second)
+        if (this.regenerationRate < 2.0) {
+            const newRegenRate = Math.min(2.0, this.regenerationRate + 0.2);
+            availablePowerUps.push({
+                title: 'Health Regeneration',
+                description: `Regen: ${this.regenerationRate.toFixed(1)}/s → ${newRegenRate.toFixed(1)}/s`,
+                type: 6
+            });
+        }
         
         // Randomly select up to 3 options from available power-ups
         const maxOptions = Math.min(3, availablePowerUps.length);
@@ -1090,6 +1106,10 @@ export class Start extends Phaser.Scene {
             case 5:
                 // Increased Damage
                 this.baseBulletDamage = Math.min(50, this.baseBulletDamage + 5);
+                break;
+            case 6:
+                // Health Regeneration
+                this.regenerationRate = Math.min(2.0, this.regenerationRate + 0.2);
                 break;
         }
         
@@ -1547,6 +1567,7 @@ export class Start extends Phaser.Scene {
         this.lastShotTime = 0;
         this.lastBoomerangTime = 0;
         this.lastBigBoomTime = 0;
+        this.lastRegenerationTime = 0;
         this.experience = 0;
         this.level = 1;
         
@@ -1556,6 +1577,7 @@ export class Start extends Phaser.Scene {
         this.bigBoomCount = this.selectedCharacter ? (this.selectedCharacter.bigBoom || 0) : 0;
         this.bulletScale = 1.0;
         this.bulletSizeUpgradeCount = 0;
+        this.regenerationRate = 0;
         this.showingPowerUpDialog = false;
         
         // Reset damage
@@ -2156,6 +2178,17 @@ export class Start extends Phaser.Scene {
         
         // Validate player and controls for normal gameplay
         if (!this.isSpriteValid(this.player) || !this.cursors) return;
+        
+        // Handle regeneration
+        if (this.regenerationRate > 0 && this.health < this.maxHealth) {
+            const currentTime = this.time.now;
+            if (currentTime - this.lastRegenerationTime >= 1000) { // Every second
+                const healAmount = this.regenerationRate;
+                this.health = Math.min(this.maxHealth, this.health + healAmount);
+                this.updateHealthBar();
+                this.lastRegenerationTime = currentTime;
+            }
+        }
         
         this.cleanupBullets();
         this.updateBoomerangs();
