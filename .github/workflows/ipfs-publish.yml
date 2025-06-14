@@ -20,6 +20,10 @@ jobs:
           CID=$(ipfs add --recursive --cid-version=1 -Q .)
           echo "CID=$CID" >> $GITHUB_ENV
 
+      - name: Publish to IPNS
+        run: |
+          ipfs name publish --key=banny ${{ env.CID }}
+
       - name: Prewarm IPFS Gateway
         run: |
           wget --recursive --no-parent --no-host-directories --cut-dirs=1 "https://${{ env.CID }}.eth.sucks/"
