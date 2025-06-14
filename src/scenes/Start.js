@@ -2288,7 +2288,10 @@ export class Start extends Phaser.Scene {
             
             const angle = Phaser.Math.Angle.Between(monster.x, monster.y, this.player.x, this.player.y);
             const velocity = new Phaser.Math.Vector2();
-            velocity.setToPolar(angle, 100);
+            
+            // Use monster's individual speed from monster data, fallback to 100 if not defined
+            const monsterSpeed = (monster.monsterData && monster.monsterData.speed) ? monster.monsterData.speed : 100;
+            velocity.setToPolar(angle, monsterSpeed);
 
             monster.setVelocity(velocity.x, velocity.y);
             monster.flipX = velocity.x < 0;
