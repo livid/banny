@@ -365,9 +365,9 @@ export class Start extends Phaser.Scene {
                 const monster = monstersData[monsterName];
                 if (monster) {
                     // Load walking texture
-                    if (!this.textures.exists(monster.key)) {
+                    if (!this.textures.exists(monster.animationKey)) {
                         monstersToLoad.push({
-                            key: monster.key,
+                            key: monster.animationKey,
                             path: `assets/monsters/${monster.file}`,
                             monsterData: monster,
                         });
@@ -382,6 +382,27 @@ export class Start extends Phaser.Scene {
                             key: monster.jumpKey,
                             path: `assets/monsters/${monster.jumpFile}`,
                             monsterData: monster,
+                            frameWidth:
+                                monster.jumpFrameWidth || monster.frameWidth,
+                            frameHeight:
+                                monster.jumpFrameHeight || monster.frameHeight,
+                        });
+                    }
+                    // Load attack texture
+                    if (
+                        monster.attackKey &&
+                        monster.attackFile &&
+                        !this.textures.exists(monster.attackKey)
+                    ) {
+                        monstersToLoad.push({
+                            key: monster.attackKey,
+                            path: `assets/monsters/${monster.attackFile}`,
+                            monsterData: monster,
+                            frameWidth:
+                                monster.attackFrameWidth || monster.frameWidth,
+                            frameHeight:
+                                monster.attackFrameHeight ||
+                                monster.frameHeight,
                         });
                     }
                 }
@@ -432,10 +453,15 @@ export class Start extends Phaser.Scene {
             // Load assets (tilesets and character images)
             allAssetsToLoad.forEach((asset) => {
                 if (asset.monsterData) {
-                    // Load monster as spritesheet
+                    // Load monster as spritesheet with specific frame dimensions
+                    const frameWidth =
+                        asset.frameWidth || asset.monsterData.frameWidth;
+                    const frameHeight =
+                        asset.frameHeight || asset.monsterData.frameHeight;
+
                     this.load.spritesheet(asset.key, asset.path, {
-                        frameWidth: asset.monsterData.frameWidth,
-                        frameHeight: asset.monsterData.frameHeight,
+                        frameWidth: frameWidth,
+                        frameHeight: frameHeight,
                     });
                     this.load.on(
                         `filecomplete-spritesheet-${asset.key}`,
@@ -702,10 +728,13 @@ export class Start extends Phaser.Scene {
                     // Create walking animation
                     this.anims.create({
                         key: monster.animationKey,
-                        frames: this.anims.generateFrameNumbers(monster.key, {
-                            start: monster.animationStart,
-                            end: monster.animationEnd,
-                        }),
+                        frames: this.anims.generateFrameNumbers(
+                            monster.animationKey,
+                            {
+                                start: monster.animationStart,
+                                end: monster.animationEnd,
+                            }
+                        ),
                         frameRate: monster.animationFrameRate || 8,
                         repeat: -1,
                     });
@@ -713,7 +742,7 @@ export class Start extends Phaser.Scene {
                     // Create jumping animation if jump assets exist
                     if (monster.jumpKey && monster.jumpFile) {
                         this.anims.create({
-                            key: monster.animationKey + "_jump",
+                            key: monster.jumpKey,
                             frames: this.anims.generateFrameNumbers(
                                 monster.jumpKey,
                                 {
@@ -724,6 +753,26 @@ export class Start extends Phaser.Scene {
                             frameRate: monster.jumpAnimationFrameRate || 5,
                             repeat: 0, // Play once
                         });
+                    }
+
+                    // Create attack animation if attack assets exist
+                    if (monster.attackKey && monster.attackFile) {
+                        const attackAnimKey = monster.attackKey;
+                        this.anims.create({
+                            key: attackAnimKey,
+                            frames: this.anims.generateFrameNumbers(
+                                monster.attackKey,
+                                {
+                                    start: monster.attackAnimationStart || 0,
+                                    end: monster.attackAnimationEnd || 4,
+                                }
+                            ),
+                            frameRate: monster.attackAnimationFrameRate || 5,
+                            repeat: 0, // Play once
+                        });
+                        console.log(
+                            `Created attack animation: ${attackAnimKey} for ${monster.name}`
+                        );
                     }
                 }
             });
@@ -1952,7 +2001,11 @@ export class Start extends Phaser.Scene {
                 return;
             }
 
-            const monster = this.monsters.create(x, y, randomMonster.key);
+            const monster = this.monsters.create(
+                x,
+                y,
+                randomMonster.animationKey
+            );
 
             if (monster) {
                 monster.play(randomMonster.animationKey);
@@ -1969,6 +2022,12 @@ export class Start extends Phaser.Scene {
                 monster.stuckTimer = 0;
                 monster.isJumping = false;
                 monster.jumpStartTime = 0;
+
+                // Initialize attack properties
+                monster.isAttacking = false;
+                monster.lastAttackTime = 0;
+                monster.attackCooldown =
+                    randomMonster.attackAnimationDuration || 1000;
 
                 // Adjust monster collision bounds based on monster data
                 const monsterWidth =
@@ -2692,6 +2751,36 @@ export class Start extends Phaser.Scene {
                 // During jump, continue with current velocity (don't update movement)
                 this.updateMonsterHealthBar(monster);
                 return;
+            } // Handle attack state
+            if (monster.isAttacking) {
+                const attackDuration = monster.attackCooldown || 1000;
+                if (currentTime - monster.lastAttackTime >= attackDuration) {
+                    // Attack is complete, return to walking
+                    monster.isAttacking = false;
+                    console.log(
+                        `Monster ${monster.monsterData.name} finished attacking, returning to walk`
+                    );
+
+                    // Return to walking animation
+                    if (
+                        monster.monsterData &&
+                        monster.monsterData.animationKey
+                    ) {
+                        monster.play(monster.monsterData.animationKey, true);
+                    }
+                } else {
+                    console.log(
+                        `Monster ${
+                            monster.monsterData.name
+                        } still attacking, time left: ${(
+                            attackDuration -
+                            (currentTime - monster.lastAttackTime)
+                        ).toFixed(0)}ms`
+                    );
+                }
+                // During attack, don't update movement (monster stays in place)
+                this.updateMonsterHealthBar(monster);
+                return;
             }
 
             // Check if monster is stuck (hasn't moved much in the last second)
@@ -2717,6 +2806,33 @@ export class Start extends Phaser.Scene {
                 // Monster is moving, reset stuck timer and update position
                 monster.stuckTimer = 0;
                 monster.lastPosition = { x: monster.x, y: monster.y };
+            }
+
+            // Check distance to player for attack
+            const distanceToPlayer = Phaser.Math.Distance.Between(
+                monster.x,
+                monster.y,
+                this.player.x,
+                this.player.y
+            );
+
+            // Attack if within 2 times the monster's width and attack is available
+            const attackRange = monster.width * monster.scaleX * monster.monsterData.attackRangeMultiplier || 1.2;
+            if (
+                distanceToPlayer <= attackRange &&
+                monster.monsterData &&
+                monster.monsterData.attackKey &&
+                currentTime - monster.lastAttackTime >= monster.attackCooldown
+            ) {
+                console.log(
+                    `Monster ${
+                        monster.monsterData.name
+                    } within attack range! Distance: ${distanceToPlayer.toFixed(
+                        1
+                    )}, Range: ${attackRange.toFixed(1)}`
+                );
+                this.performMonsterAttack(monster);
+                return;
             }
 
             const angle = Phaser.Math.Angle.Between(
@@ -2753,9 +2869,11 @@ export class Start extends Phaser.Scene {
         monster.body.checkCollision.none = true;
 
         // Play jump animation if available
-        const jumpAnimationKey = monster.monsterData.animationKey + "_jump";
-        if (this.anims.exists(jumpAnimationKey)) {
-            monster.play(jumpAnimationKey, true);
+        if (monster.monsterData.jumpKey) {
+            const jumpAnimationKey = monster.monsterData.jumpKey;
+            if (this.anims.exists(jumpAnimationKey)) {
+                monster.play(jumpAnimationKey, true);
+            }
         }
 
         // Calculate jump direction (towards player)
@@ -2784,6 +2902,56 @@ export class Start extends Phaser.Scene {
 
         console.log(
             `Monster ${monster.monsterData.name} is jumping! Distance: ${jumpDistance}`
+        );
+    }
+
+    performMonsterAttack(monster) {
+        if (!monster.monsterData || monster.isAttacking || monster.isJumping)
+            return;
+
+        // Set attacking state
+        monster.isAttacking = true;
+        monster.lastAttackTime = this.time.now;
+
+        // Stop monster movement during attack
+        monster.setVelocity(0, 0);
+
+        // Stop current animation and play attack animation if available
+        if (monster.monsterData.attackKey) {
+            const attackAnimationKey = monster.monsterData.attackKey;
+            console.log(
+                `Trying to play attack animation: ${attackAnimationKey}`
+            );
+            console.log(
+                `Animation exists: ${this.anims.exists(attackAnimationKey)}`
+            );
+            if (this.anims.exists(attackAnimationKey)) {
+                // Stop current animation first to prevent override
+                monster.stop();
+                monster.play(attackAnimationKey, true);
+                console.log(
+                    `Attack animation ${attackAnimationKey} started playing`
+                );
+            } else {
+                console.warn(
+                    `Attack animation ${attackAnimationKey} does not exist!`
+                );
+            }
+        } else {
+            console.warn(
+                `Monster ${monster.monsterData.name} has no attackKey`
+            );
+        }
+
+        console.log(
+            `Monster ${
+                monster.monsterData.name
+            } is attacking! Distance to player: ${Phaser.Math.Distance.Between(
+                monster.x,
+                monster.y,
+                this.player.x,
+                this.player.y
+            ).toFixed(1)}`
         );
     }
 
