@@ -17,6 +17,8 @@ export class CharacterSelection extends Phaser.Scene {
         this.currentPage = 0;
         this.totalPages = 0;
         this.pageText = null;
+        // Page indicator dots
+        this.pageIndicatorDots = [];
         this.selectedCol = 0;
         this.selectedRow = 0;
         // Key repeat functionality
@@ -65,6 +67,18 @@ export class CharacterSelection extends Phaser.Scene {
             this.pageText.destroy();
             this.pageText = null;
         }
+
+        // Clear page indicator dots
+        if (this.pageIndicatorDots) {
+            this.pageIndicatorDots.forEach((dot) => {
+                if (dot && dot.destroy) {
+                    dot.destroy();
+                }
+            });
+            this.pageIndicatorDots = [];
+        }
+
+        // Clear debug text
         if (this.debugText) {
             this.debugText.destroy();
             this.debugText = null;
@@ -185,20 +199,8 @@ export class CharacterSelection extends Phaser.Scene {
             )
             .setOrigin(0.5, 0.5);
 
-        // Add page indicator
-        this.pageText = this.add
-            .text(
-                this.cameras.main.centerX,
-                this.cameras.main.height - 40,
-                "",
-                {
-                    fontSize: "18px",
-                    fill: "#ffff00",
-                    stroke: "#000000",
-                    strokeThickness: 2,
-                }
-            )
-            .setOrigin(0.5, 0.5);
+        // Create iOS-style page indicator dots
+        this.createPageIndicatorDots();
 
         // Add debug text
         this.debugText = this.add.text(16, 16, "", {
@@ -774,7 +776,7 @@ export class CharacterSelection extends Phaser.Scene {
         });
 
         // Update page text
-        this.updatePageText();
+        this.updatePageIndicatorDots();
     }
 
     moveSelection(deltaCol, deltaRow) {
@@ -904,14 +906,50 @@ export class CharacterSelection extends Phaser.Scene {
         return false; // Could not change page (at boundary)
     }
 
-    updatePageText() {
-        if (this.pageText && this.pageText.scene && this.charactersData) {
-            this.pageText.setText(
-                `Page ${this.currentPage + 1} of ${this.totalPages} (${
-                    this.charactersData.length
-                } characters total)`
-            );
+    createPageIndicatorDots() {
+        // Clear existing dots
+        if (this.pageIndicatorDots) {
+            this.pageIndicatorDots.forEach((dot) => {
+                if (dot && dot.destroy) {
+                    dot.destroy();
+                }
+            });
         }
+        this.pageIndicatorDots = [];
+
+        if (this.totalPages <= 1) {
+            return; // No need for dots if only one page
+        }
+
+        const dotRadius = 6;
+        const dotSpacing = 20;
+        const totalWidth = (this.totalPages - 1) * dotSpacing;
+        const startX = this.cameras.main.centerX - totalWidth / 2;
+        const y = this.cameras.main.height - 40;
+
+        for (let i = 0; i < this.totalPages; i++) {
+            const x = startX + i * dotSpacing;
+            const dot = this.add.circle(x, y, dotRadius, 0x666666); // Dark gray for inactive
+            this.pageIndicatorDots.push(dot);
+        }
+
+        this.updatePageIndicatorDots();
+    }
+
+    updatePageIndicatorDots() {
+        if (!this.pageIndicatorDots || this.pageIndicatorDots.length === 0) {
+            return;
+        }
+
+        this.pageIndicatorDots.forEach((dot, index) => {
+            if (dot && dot.setFillStyle) {
+                if (index === this.currentPage) {
+                    dot.setFillStyle(0xffff00); // Yellow for current page
+                } else {
+                    dot.setFillStyle(0x666666); // Dark gray for inactive pages
+                }
+            }
+        });
     }
 
     updateSelection() {
