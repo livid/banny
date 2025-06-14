@@ -153,7 +153,7 @@ export class CharacterSelection extends Phaser.Scene {
         this.createCharacterGrid();
 
         // Add instructions
-        this.instructionsText = this.add.text(this.cameras.main.centerX, this.cameras.main.height - 80, 'Use ARROW KEYS or D-PAD/LEFT STICK to navigate • Q/E for pages • ENTER/B/START to select\nCharacters ordered by usage frequency', {
+        this.instructionsText = this.add.text(this.cameras.main.centerX, this.cameras.main.height - 80, 'Use ARROW KEYS or D-PAD/LEFT STICK to navigate • Q/E for pages • ENTER/START to select\nCharacters ordered by usage frequency', {
             fontSize: '18px',
             fill: '#ffffff',
             stroke: '#000000',
@@ -212,7 +212,7 @@ export class CharacterSelection extends Phaser.Scene {
         }
         
         console.log('Setting up keyboard input with cursor keys, Q/E for pages, and ENTER');
-        console.log('Controller support: D-pad/Left stick for navigation, B/Start for selection');
+        console.log('Controller support: D-pad/Left stick for navigation, Start for selection');
 
         // Ensure background music is playing
         let globalBackgroundMusic = this.registry.get('backgroundMusic');
@@ -374,18 +374,12 @@ export class CharacterSelection extends Phaser.Scene {
             this.selectCharacter();
         }
         
-        // Handle gamepad selection (B button or Start button)
+        // Handle gamepad selection (Start button only)
         if (this.gamepad) {
             // Check for specific button presses based on your controller mapping
             if (this.gamepad.buttons) {
-                // Button 0 = B button on your controller
-                const button0 = this.gamepad.buttons[0];
+                // Button 9 = Start button on your controller
                 const button9 = this.gamepad.buttons[9];
-                
-                // Manual justDown detection for button 0
-                const button0WasPressed = this.previousButtonStates[0] || false;
-                const button0IsPressed = button0 && button0.pressed;
-                const button0JustPressed = button0IsPressed && !button0WasPressed;
                 
                 // Manual justDown detection for button 9
                 const button9WasPressed = this.previousButtonStates[9] || false;
@@ -393,33 +387,18 @@ export class CharacterSelection extends Phaser.Scene {
                 const button9JustPressed = button9IsPressed && !button9WasPressed;
                 
                 // Update previous states
-                this.previousButtonStates[0] = button0IsPressed;
                 this.previousButtonStates[9] = button9IsPressed;
                 
-                // Check for button presses
-                if (button0JustPressed || (button0 && button0.justDown)) {
-                    console.log('Gamepad B button (button 0) pressed - selecting character');
-                    this.selectCharacter();
-                }
+                // Check for button press
                 if (button9JustPressed || (button9 && button9.justDown)) {
                     console.log('Gamepad Start button (button 9) pressed - selecting character');
                     this.selectCharacter();
                 }
                 
                 // Debug logging for button states
-                if (button0IsPressed || button9IsPressed) {
-                    console.log(`Button states - 0: ${button0IsPressed} (was: ${button0WasPressed}), 9: ${button9IsPressed} (was: ${button9WasPressed})`);
+                if (button9IsPressed) {
+                    console.log(`Button states - 9: ${button9IsPressed} (was: ${button9WasPressed})`);
                 }
-            }
-            
-            // Also try direct property access for common buttons (fallback)
-            if (this.gamepad.A && this.gamepad.A.justDown) {
-                console.log('Gamepad A button (direct) pressed - selecting character');
-                this.selectCharacter();
-            }
-            if (this.gamepad.B && this.gamepad.B.justDown) {
-                console.log('Gamepad B button (direct) pressed - selecting character');
-                this.selectCharacter();
             }
         }
     }
