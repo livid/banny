@@ -363,12 +363,27 @@ export class Start extends Phaser.Scene {
             const monstersData = this.cache.json.get("monsters-data");
             this.selectedMap.monsters.forEach((monsterName) => {
                 const monster = monstersData[monsterName];
-                if (monster && !this.textures.exists(monster.key)) {
-                    monstersToLoad.push({
-                        key: monster.key,
-                        path: `assets/monsters/${monster.file}`,
-                        monsterData: monster,
-                    });
+                if (monster) {
+                    // Load walking texture
+                    if (!this.textures.exists(monster.key)) {
+                        monstersToLoad.push({
+                            key: monster.key,
+                            path: `assets/monsters/${monster.file}`,
+                            monsterData: monster,
+                        });
+                    }
+                    // Load jumping texture
+                    if (
+                        monster.jumpKey &&
+                        monster.jumpFile &&
+                        !this.textures.exists(monster.jumpKey)
+                    ) {
+                        monstersToLoad.push({
+                            key: monster.jumpKey,
+                            path: `assets/monsters/${monster.jumpFile}`,
+                            monsterData: monster,
+                        });
+                    }
                 }
             });
         }
@@ -684,6 +699,7 @@ export class Start extends Phaser.Scene {
             this.selectedMap.monsters.forEach((monsterName) => {
                 const monster = monstersData[monsterName];
                 if (monster) {
+                    // Create walking animation
                     this.anims.create({
                         key: monster.animationKey,
                         frames: this.anims.generateFrameNumbers(monster.key, {
@@ -693,6 +709,22 @@ export class Start extends Phaser.Scene {
                         frameRate: monster.animationFrameRate || 8,
                         repeat: -1,
                     });
+
+                    // Create jumping animation if jump assets exist
+                    if (monster.jumpKey && monster.jumpFile) {
+                        this.anims.create({
+                            key: monster.animationKey + "_jump",
+                            frames: this.anims.generateFrameNumbers(
+                                monster.jumpKey,
+                                {
+                                    start: monster.jumpAnimationStart || 0,
+                                    end: monster.jumpAnimationEnd || 4,
+                                }
+                            ),
+                            frameRate: monster.jumpAnimationFrameRate || 5,
+                            repeat: 0, // Play once
+                        });
+                    }
                 }
             });
         }
@@ -1932,6 +1964,12 @@ export class Start extends Phaser.Scene {
                 monster.currentHealth = monster.maxHealth;
                 monster.monsterData = randomMonster; // Store reference to monster data
 
+                // Initialize stuck detection properties
+                monster.lastPosition = { x: monster.x, y: monster.y };
+                monster.stuckTimer = 0;
+                monster.isJumping = false;
+                monster.jumpStartTime = 0;
+
                 // Adjust monster collision bounds based on monster data
                 const monsterWidth =
                     monster.width * (randomMonster.collisionWidthScale || 0.5);
@@ -2625,6 +2663,62 @@ export class Start extends Phaser.Scene {
         this.safeGroupForEach(this.monsters, (monster) => {
             if (!monster.setVelocity || !monster.body?.world) return;
 
+            const currentTime = this.time.now;
+
+            // Handle jumping state
+            if (monster.isJumping) {
+                const jumpDuration = 1000; // 1000ms jump duration
+                if (currentTime - monster.jumpStartTime >= jumpDuration) {
+                    // Jump is complete, return to walking
+                    monster.isJumping = false;
+                    monster.stuckTimer = 0; // Reset stuck timer
+                    monster.lastPosition = { x: monster.x, y: monster.y };
+
+                    // Re-enable collision detection
+                    monster.body.checkCollision.none = false;
+                    monster.body.checkCollision.up = true;
+                    monster.body.checkCollision.down = true;
+                    monster.body.checkCollision.left = true;
+                    monster.body.checkCollision.right = true;
+
+                    // Return to walking animation
+                    if (
+                        monster.monsterData &&
+                        monster.monsterData.animationKey
+                    ) {
+                        monster.play(monster.monsterData.animationKey, true);
+                    }
+                }
+                // During jump, continue with current velocity (don't update movement)
+                this.updateMonsterHealthBar(monster);
+                return;
+            }
+
+            // Check if monster is stuck (hasn't moved much in the last second)
+            const distanceMoved = Phaser.Math.Distance.Between(
+                monster.x,
+                monster.y,
+                monster.lastPosition.x,
+                monster.lastPosition.y
+            );
+
+            const stuckThreshold = 20; // pixels
+            const stuckTimeThreshold = 1000; // 1 second
+
+            if (distanceMoved < stuckThreshold) {
+                monster.stuckTimer += this.game.loop.delta;
+
+                // If stuck for too long, perform jump
+                if (monster.stuckTimer >= stuckTimeThreshold) {
+                    this.performMonsterJump(monster);
+                    return;
+                }
+            } else {
+                // Monster is moving, reset stuck timer and update position
+                monster.stuckTimer = 0;
+                monster.lastPosition = { x: monster.x, y: monster.y };
+            }
+
             const angle = Phaser.Math.Angle.Between(
                 monster.x,
                 monster.y,
@@ -2646,6 +2740,51 @@ export class Start extends Phaser.Scene {
             // Update health bar position
             this.updateMonsterHealthBar(monster);
         });
+    }
+
+    performMonsterJump(monster) {
+        if (!monster.monsterData || monster.isJumping) return;
+
+        // Set jumping state
+        monster.isJumping = true;
+        monster.jumpStartTime = this.time.now;
+
+        // Disable collision detection during jump
+        monster.body.checkCollision.none = true;
+
+        // Play jump animation if available
+        const jumpAnimationKey = monster.monsterData.animationKey + "_jump";
+        if (this.anims.exists(jumpAnimationKey)) {
+            monster.play(jumpAnimationKey, true);
+        }
+
+        // Calculate jump direction (towards player)
+        const angle = Phaser.Math.Angle.Between(
+            monster.x,
+            monster.y,
+            this.player.x,
+            this.player.y
+        );
+
+        // Jump distance is 1.25x their width
+        const jumpDistance = monster.width * monster.scaleX * 1.25;
+
+        // Calculate the target position (jump towards player)
+        const targetX = monster.x + Math.cos(angle) * jumpDistance;
+        const targetY = monster.y + Math.sin(angle) * jumpDistance;
+
+        // Calculate velocity needed to reach target in jump duration
+        const jumpDuration = 1000; // 1000ms jump duration
+        const jumpVelocityX = (targetX - monster.x) / (jumpDuration / 1000);
+        const jumpVelocityY = (targetY - monster.y) / (jumpDuration / 1000);
+
+        // Apply jump velocity towards player
+        monster.setVelocity(jumpVelocityX, jumpVelocityY);
+        monster.flipX = jumpVelocityX < 0;
+
+        console.log(
+            `Monster ${monster.monsterData.name} is jumping! Distance: ${jumpDistance}`
+        );
     }
 
     selectMonsterByRarity(availableMonsterNames, monstersData) {
