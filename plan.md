@@ -9,5 +9,5 @@
 
 - [ ] Implement attack effects for blades.
 - [ ] Press a letter key to jump in the character selection scene.
-- [ ] Use circular dots in the character selection scene as page indicator.
-- [ ] Use `monsters.json` to define walking speeds for different monsters.
+- [x] Use circular dots in the character selection scene as page indicator.
+- [x] Use `monsters.json` to define walking speeds for different monsters.
