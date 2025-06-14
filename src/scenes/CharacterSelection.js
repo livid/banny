@@ -40,6 +40,11 @@ export class CharacterSelection extends Phaser.Scene {
         this.lastButtonPressed = false;
         // Track previous button states for manual justDown detection
         this.previousButtonStates = {};
+
+        // Letter key navigation support
+        this.letterKeys = {};
+        this.lastLetterKeyTime = 0;
+        this.letterKeyDelay = 300; // Minimum delay between letter key presses (ms)
     }
 
     init() {
@@ -188,7 +193,7 @@ export class CharacterSelection extends Phaser.Scene {
             .text(
                 this.cameras.main.centerX,
                 this.cameras.main.height - 80,
-                "Use ARROW KEYS or D-PAD/LEFT STICK to navigate • ENTER/START to select\nCharacters ordered by usage frequency",
+                "Use ARROW KEYS or D-PAD/LEFT STICK to navigate • ENTER/START to select\nPress A-Z or 0-9 to jump to characters starting with that letter/number\nCharacters ordered by usage frequency",
                 {
                     fontSize: "18px",
                     fill: "#ffffff",
@@ -214,6 +219,9 @@ export class CharacterSelection extends Phaser.Scene {
         this.enterKey = this.input.keyboard.addKey(
             Phaser.Input.Keyboard.KeyCodes.ENTER
         );
+
+        // Set up letter keys for jumping to characters
+        this.setupLetterKeyNavigation();
 
         // Set up gamepad input (check if gamepad plugin is available)
         if (this.input.gamepad) {
@@ -294,6 +302,114 @@ export class CharacterSelection extends Phaser.Scene {
             },
             loop: true,
         });
+    }
+
+    // Letter key navigation methods
+    setupLetterKeyNavigation() {
+        // Create key objects for A-Z
+        for (let i = 65; i <= 90; i++) {
+            // ASCII codes for A-Z
+            const letter = String.fromCharCode(i);
+            const keyCode = Phaser.Input.Keyboard.KeyCodes[letter];
+            if (keyCode) {
+                this.letterKeys[letter] = this.input.keyboard.addKey(keyCode);
+            }
+        }
+
+        // Create key objects for 0-9 (for names starting with numbers like "0x...")
+        const numberKeys = {
+            0: "ZERO",
+            1: "ONE",
+            2: "TWO",
+            3: "THREE",
+            4: "FOUR",
+            5: "FIVE",
+            6: "SIX",
+            7: "SEVEN",
+            8: "EIGHT",
+            9: "NINE",
+        };
+
+        for (let digit in numberKeys) {
+            const keyCode = Phaser.Input.Keyboard.KeyCodes[numberKeys[digit]];
+            if (keyCode) {
+                this.letterKeys[digit] = this.input.keyboard.addKey(keyCode);
+            }
+        }
+
+        console.log("Letter key navigation set up for A-Z and 0-9");
+    }
+
+    handleLetterKeyNavigation() {
+        // Check if enough time has passed since last letter key press
+        const currentTime = this.time.now;
+        if (currentTime - this.lastLetterKeyTime < this.letterKeyDelay) {
+            return;
+        }
+
+        // Check each letter/number key
+        for (let character in this.letterKeys) {
+            const key = this.letterKeys[character];
+            if (Phaser.Input.Keyboard.JustDown(key)) {
+                console.log(`Character key ${character} pressed`);
+                this.jumpToCharacterStartingWith(character);
+                this.lastLetterKeyTime = currentTime;
+                break; // Only process one character key at a time
+            }
+        }
+    }
+
+    jumpToCharacterStartingWith(letter) {
+        if (!this.charactersData || this.charactersData.length === 0) {
+            return;
+        }
+
+        const letterLower = letter.toLowerCase();
+
+        // Find the first character that starts with this letter (case insensitive)
+        let targetIndex = -1;
+        for (let i = 0; i < this.charactersData.length; i++) {
+            const characterName = this.charactersData[i].name.toLowerCase();
+            if (characterName.startsWith(letterLower)) {
+                targetIndex = i;
+                break;
+            }
+        }
+
+        if (targetIndex === -1) {
+            console.log(`No character found starting with letter '${letter}'`);
+            return;
+        }
+
+        console.log(
+            `Jumping to character '${this.charactersData[targetIndex].name}' at index ${targetIndex}`
+        );
+
+        // Calculate which page this character is on
+        const targetPage = Math.floor(targetIndex / this.charactersPerPage);
+
+        // Calculate grid position on the target page
+        const localIndex = targetIndex - targetPage * this.charactersPerPage;
+        const targetCol = localIndex % this.gridCols;
+        const targetRow = Math.floor(localIndex / this.gridCols);
+
+        // Update current page if necessary
+        if (targetPage !== this.currentPage) {
+            this.currentPage = targetPage;
+            this.createCharacterGrid(); // This will also update page indicator dots
+        }
+
+        // Update selection position
+        this.selectedIndex = targetIndex;
+        this.selectedCol = targetCol;
+        this.selectedRow = targetRow;
+
+        console.log(
+            `Updated selection: page=${this.currentPage}, col=${this.selectedCol}, row=${this.selectedRow}, index=${this.selectedIndex}`
+        );
+
+        // Update visual selection
+        this.updateSelection();
     }
 
     // Character selection tracking methods
@@ -381,6 +497,9 @@ export class CharacterSelection extends Phaser.Scene {
 
         // Handle arrow key navigation with repeat support
         this.handleKeyNavigation();
+
+        // Handle letter key navigation for jumping to characters
+        this.handleLetterKeyNavigation();
 
         // Handle gamepad navigation
         this.handleGamepadNavigation();
@@ -1101,6 +1220,10 @@ export class CharacterSelection extends Phaser.Scene {
         if (this.enterKey) {
             this.enterKey = null;
         }
+
+        // Clean up letter keys
+        this.letterKeys = {};
+
         console.log("CharacterSelection scene shutdown");
     }
 }
