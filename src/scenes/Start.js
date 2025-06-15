@@ -4,6 +4,11 @@ import {
     onBoomerangHitMonster,
 } from "../logic/boomerang.js";
 import { shootBigBoom, onBigBoomHitMonster } from "../logic/bigBoom.js";
+import {
+    shootBullet,
+    onBulletHitMonster,
+    cleanupBullets,
+} from "../logic/bullet.js";
 
 export class Start extends Phaser.Scene {
     constructor() {
@@ -2235,55 +2240,7 @@ export class Start extends Phaser.Scene {
     }
 
     shootBullet() {
-        if (
-            !this.isGameActive() ||
-            !this.isGroupValid(this.bullets) ||
-            !this.isSpriteValid(this.player)
-        )
-            return;
-
-        const currentTime = this.time.now;
-        if (currentTime - this.lastShotTime < this.fireRate) return;
-
-        this.lastShotTime = currentTime;
-        this.playSoundSafe(this.laserSound);
-
-        try {
-            const bullet = this.bullets.create(
-                this.player.x,
-                this.player.y,
-                "blue-explosion"
-            );
-            if (!bullet) return;
-
-            bullet.setFrame(0);
-            bullet.setScale(this.bulletScale);
-
-            // Set collision body scale to 0.5
-            bullet.body.setSize(bullet.width * 0.5, bullet.height * 0.5);
-
-            // Add visual effect for penetrating bullets
-            if (this.bulletSizeUpgradeCount > 3) {
-                bullet.setTint(0x7fff00);
-                bullet.setBlendMode(Phaser.BlendModes.ADD);
-            }
-
-            const nearestMonster = this.findNearestMonster();
-            const angle = nearestMonster
-                ? Phaser.Math.Angle.Between(
-                      this.player.x,
-                      this.player.y,
-                      nearestMonster.x,
-                      nearestMonster.y
-                  )
-                : Phaser.Math.FloatBetween(0, Math.PI * 2);
-
-            const velocity = new Phaser.Math.Vector2();
-            velocity.setToPolar(angle, 300);
-            bullet.setVelocity(velocity.x, velocity.y);
-        } catch (error) {
-            console.warn("Error creating bullet:", error);
-        }
+        shootBullet(this);
     }
     shootBoomerang() {
         shootBoomerang(this);
@@ -2311,40 +2268,7 @@ export class Start extends Phaser.Scene {
     }
 
     onBulletHitMonster(bullet, monster) {
-        this.playSoundSafe(this.hurtSound);
-
-        // Calculate damage with distance-based variation
-        const damage = this.calculateDistanceBasedDamage(
-            this.baseBulletDamage,
-            monster
-        );
-
-        // Apply damage to monster
-        monster.currentHealth -= damage;
-
-        // Show damage number
-        this.showDamageNumber(monster.x, monster.y - 20, damage);
-
-        // Create health bar if monster has taken damage and isn't at full health
-        if (monster.currentHealth < monster.maxHealth) {
-            this.createMonsterHealthBar(monster);
-        }
-
-        // Update health bar
-        this.updateMonsterHealthBar(monster);
-
-        // Only destroy bullet if it doesn't penetrate
-        if (this.bulletSizeUpgradeCount <= 3) {
-            bullet.destroy();
-        }
-
-        // Check if monster is destroyed
-        if (monster.currentHealth <= 0) {
-            this.createExplosion(monster.x, monster.y);
-            this.destroyMonsterHealthBar(monster);
-            monster.destroy();
-            this.updateScore(monster);
-        }
+        onBulletHitMonster(bullet, monster, this);
     }
 
     onBoomerangHitMonster(boomerang, monster) {
@@ -2420,21 +2344,7 @@ export class Start extends Phaser.Scene {
     }
 
     cleanupBullets() {
-        if (!this.isGroupValid(this.bullets)) return;
-
-        const buffer = 100;
-        const bounds = this.physics.world.bounds;
-
-        this.safeGroupForEach(this.bullets, (bullet) => {
-            if (
-                bullet.x < -buffer ||
-                bullet.x > bounds.width + buffer ||
-                bullet.y < -buffer ||
-                bullet.y > bounds.height + buffer
-            ) {
-                bullet.destroy();
-            }
-        });
+        cleanupBullets(this);
     }
 
     update() {
