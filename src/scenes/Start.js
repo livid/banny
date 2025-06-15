@@ -9,6 +9,11 @@ import {
     onBulletHitMonster,
     cleanupBullets,
 } from "../logic/bullet.js";
+import {
+    initFlamethrower,
+    updateFlamethrower,
+    cleanupFlamethrower,
+} from "../logic/flamethrower.js";
 
 export class Start extends Phaser.Scene {
     constructor() {
@@ -536,6 +541,7 @@ export class Start extends Phaser.Scene {
             this.bigBoomCount = this.selectedCharacter.bigBoom || 0;
             this.maxHealth = this.selectedCharacter.health || 100;
             this.regenerationRate = this.selectedCharacter.regen || 0;
+            this.attackType = this.selectedCharacter.attackType || "bullet";
             this.health = this.maxHealth; // Set current health to max health
         } else {
             // Fallback to first character from data if none selected
@@ -548,6 +554,7 @@ export class Start extends Phaser.Scene {
                 bigBoom: 0,
                 health: 100,
                 regen: 0,
+                attackType: "bullet",
                 nft_id: "42161-4000000009",
             };
             this.fireRate = this.selectedCharacter.fireRate;
@@ -555,6 +562,7 @@ export class Start extends Phaser.Scene {
             this.bigBoomCount = this.selectedCharacter.bigBoom || 0;
             this.maxHealth = this.selectedCharacter.health || 100;
             this.regenerationRate = this.selectedCharacter.regen || 0;
+            this.attackType = this.selectedCharacter.attackType || "bullet";
             this.health = this.maxHealth; // Set current health to max health
         }
 
@@ -712,6 +720,9 @@ export class Start extends Phaser.Scene {
 
         // Add Big Boom group
         this.bigBooms = this.physics.add.group();
+
+        // Initialize flamethrower
+        initFlamethrower(this);
 
         // Create monster group (moved before collision setup)
         this.monsters = this.physics.add.group();
@@ -1865,6 +1876,10 @@ export class Start extends Phaser.Scene {
             this.enterKey.removeAllListeners();
             this.enterKey = null;
         }
+
+        // Clean up flamethrower resources
+        cleanupFlamethrower(this);
+
         console.log("Start scene shutdown");
     }
 
@@ -2497,7 +2512,17 @@ export class Start extends Phaser.Scene {
         this.updateBoomerangs();
         this.shootBoomerang();
         this.shootBigBoom();
-        this.shootBullet();
+
+        // Handle different attack types
+        if (
+            this.selectedCharacter &&
+            this.selectedCharacter.attackType === "flamethrower"
+        ) {
+            updateFlamethrower(this);
+        } else {
+            // Default to bullet attack
+            this.shootBullet();
+        }
 
         this.updatePlayerMovement();
         this.updateMonsterMovement();
