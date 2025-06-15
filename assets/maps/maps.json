@@ -2,6 +2,7 @@
     "Desert": {
         "name": "Desert",
         "enabled": true,
+        "victory": 500,
         "tiledJson": {
             "key": "desert-map",
             "file": "Desert.json"
@@ -31,16 +32,12 @@
                 "collision": true
             }
         ],
-        "monsters": [
-            "Imp",
-            "Destroyer",
-            "Tank",
-            "DemonHero"
-        ]
+        "monsters": ["Imp", "Destroyer", "Tank", "DemonHero"]
     },
     "Maze": {
         "name": "Maze",
         "enabled": false,
+        "victory": 500,
         "tiledJson": {
             "key": "maze-map",
             "file": "Maze.json"
@@ -62,11 +59,6 @@
                 "collision": true
             }
         ],
-        "monsters": [
-            "Imp",
-            "Destroyer",
-            "Tank",
-            "DemonHero"
-        ]
+        "monsters": ["Imp", "Destroyer", "Tank", "DemonHero"]
     }
 }

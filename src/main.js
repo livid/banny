@@ -1,5 +1,6 @@
 import { Start } from "./scenes/Start.js";
 import { CharacterSelection } from "./scenes/CharacterSelection.js";
+import { Victory } from "./scenes/Victory.js";
 
 const config = {
     type: Phaser.WEBGL,
@@ -10,7 +11,7 @@ const config = {
     height: 720,
     backgroundColor: "#000000",
     pixelArt: true,
-    scene: [CharacterSelection, Start],
+    scene: [CharacterSelection, Start, Victory],
     input: {
         gamepad: true,
     },

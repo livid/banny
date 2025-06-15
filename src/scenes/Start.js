@@ -1890,7 +1890,7 @@ export class Start extends Phaser.Scene {
         this.victoryText = this.add.text(
             this.cameras.main.centerX,
             this.cameras.main.centerY,
-            "STAGE CLEARED\nPress ENTER or B/Start button to select character",
+            "STAGE CLEARED\nPress ENTER or B/Start button to continue",
             {
                 fontSize: "42px",
                 fill: "#00ff00",
@@ -2703,7 +2703,7 @@ export class Start extends Phaser.Scene {
                 Phaser.Input.Keyboard.JustDown(this.enterKey)
             ) {
                 this.sceneTransitioning = true;
-                this.scene.start("CharacterSelection");
+                this.scene.start("Victory", { selectedMap: this.selectedMap });
             }
 
             // Handle gamepad input (button 0 = B button, button 9 = Start button)
@@ -2730,7 +2730,9 @@ export class Start extends Phaser.Scene {
                 // Check for button presses
                 if (button0JustPressed || button9JustPressed) {
                     this.sceneTransitioning = true;
-                    this.scene.start("CharacterSelection");
+                    this.scene.start("Victory", {
+                        selectedMap: this.selectedMap,
+                    });
                     return;
                 }
             }
