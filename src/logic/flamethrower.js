@@ -15,8 +15,8 @@ export function initFlamethrower(scene) {
     scene.isFlamethrowerActive = false;
     scene.lastFlamethrowerDamageTime = 0;
     scene.flamethrowerDamageInterval = 200; // 200ms damage interval
-    scene.flamethrowerRange = 200; // 200px range
-    scene.flamethrowerDamage = 5; // 5 damage per tick
+    scene.flamethrowerRange = 300; // 300px range
+    scene.flamethrowerDamage = 3; // 3 damage per tick
 
     // Track flying particles
     scene.flyingParticles = [];
@@ -267,8 +267,25 @@ function handleFlamethrowerDamage(scene, currentTime) {
 export function onFlamethrowerHitMonster(scene, monster) {
     if (!scene.isSpriteValid(monster)) return;
 
-    // Apply damage
-    monster.health -= scene.flamethrowerDamage;
+    scene.playSoundSafe(scene.hurtSound);
+
+    // Calculate damage with distance-based variation (similar to other weapons)
+    const baseDamage = scene.flamethrowerDamage;
+    const damage = scene.calculateDistanceBasedDamage(baseDamage, monster);
+
+    // Apply damage to monster using currentHealth (consistent with other weapons)
+    monster.currentHealth -= damage;
+
+    // Show damage number
+    scene.showDamageNumber(monster.x, monster.y - 20, damage);
+
+    // Create health bar if monster has taken damage and isn't at full health
+    if (monster.currentHealth < monster.maxHealth) {
+        scene.createMonsterHealthBar(monster);
+    }
+
+    // Update health bar
+    scene.updateMonsterHealthBar(monster);
 
     // Create hit effect (small explosion)
     const hitEffect = scene.add.sprite(monster.x, monster.y, "blue-explosion");
@@ -284,34 +301,11 @@ export function onFlamethrowerHitMonster(scene, monster) {
     }
 
     // Check if monster is dead
-    if (monster.health <= 0) {
-        scene.addScore(monster.points || 10);
-        scene.addExperience(monster.experience || 5);
-
-        // Create death explosion
-        const explosion = scene.add.sprite(
-            monster.x,
-            monster.y,
-            "blue-explosion"
-        );
-        if (explosion) {
-            explosion.setScale(0.5);
-            explosion.setTint(0xff4500); // Orange tint for fire effect
-            explosion.play("explosion");
-            explosion.once("animationcomplete", () => {
-                if (explosion && explosion.active) {
-                    explosion.destroy();
-                }
-            });
-        }
-
-        // Play death sound
-        scene.playSoundSafe(scene.monsterDeathSound);
-
-        // Remove monster
-        if (monster.active) {
-            monster.destroy();
-        }
+    if (monster.currentHealth <= 0) {
+        scene.createExplosion(monster.x, monster.y);
+        scene.destroyMonsterHealthBar(monster);
+        monster.destroy();
+        scene.updateScore(monster);
     }
 }
 
