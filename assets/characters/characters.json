@@ -46,7 +46,7 @@
   {
     "fireRate": 500,
     "bigBoom": 0,
-    "boomerang": 0,
+    "boomerang": 1,
     "health": 100,
     "regen": 0,
     "nft_id": "8453-4000000003",
@@ -266,7 +266,7 @@
   {
     "fireRate": 500,
     "bigBoom": 0,
-    "boomerang": 0,
+    "boomerang": 1,
     "health": 150,
     "regen": 0,
     "nft_id": "8453-3000000007",
@@ -288,7 +288,7 @@
   {
     "fireRate": 500,
     "bigBoom": 0,
-    "boomerang": 0,
+    "boomerang": 1,
     "health": 100,
     "regen": 0,
     "nft_id": "1-4000000055",
@@ -321,7 +321,7 @@
   {
     "fireRate": 500,
     "bigBoom": 0,
-    "boomerang": 0,
+    "boomerang": 1,
     "health": 150,
     "regen": 0.5,
     "nft_id": "1-4000000054",
@@ -343,7 +343,7 @@
   {
     "fireRate": 500,
     "bigBoom": 0,
-    "boomerang": 0,
+    "boomerang": 1,
     "health": 100,
     "regen": 0,
     "nft_id": "8453-4000000080",
@@ -420,7 +420,7 @@
   {
     "fireRate": 500,
     "bigBoom": 0,
-    "boomerang": 0,
+    "boomerang": 1,
     "health": 150,
     "regen": 0,
     "nft_id": "8453-3000000006",
@@ -453,7 +453,7 @@
   {
     "fireRate": 500,
     "bigBoom": 0,
-    "boomerang": 0,
+    "boomerang": 1,
     "health": 150,
     "regen": 0,
     "nft_id": "10-3000000001",
@@ -695,7 +695,7 @@
   {
     "fireRate": 500,
     "bigBoom": 0,
-    "boomerang": 0,
+    "boomerang": 1,
     "health": 150,
     "regen": 0,
     "nft_id": "1-3000000006",
@@ -761,7 +761,7 @@
   {
     "fireRate": 500,
     "bigBoom": 0,
-    "boomerang": 0,
+    "boomerang": 1,
     "health": 150,
     "regen": 0,
     "nft_id": "1-3000000003",
@@ -794,7 +794,7 @@
   {
     "fireRate": 500,
     "bigBoom": 0,
-    "boomerang": 0,
+    "boomerang": 1,
     "health": 100,
     "regen": 0,
     "nft_id": "1-4000000010",
