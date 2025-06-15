@@ -1883,6 +1883,9 @@ export class Start extends Phaser.Scene {
     updatePlayerMovement() {
         if (!this.isSpriteValid(this.player) || !this.cursors) return;
 
+        // Don't allow movement in victory or game over states
+        if (this.victory || this.gameOver) return;
+
         const speed = 200;
         const deadzone = 0.3; // Deadzone for analog stick
 
