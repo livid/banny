@@ -14,6 +14,7 @@ import {
     updateFlamethrower,
     cleanupFlamethrower,
 } from "../logic/flamethrower.js";
+import { PowerUpManager, updateRegeneration } from "../logic/powerUp.js";
 
 export class Start extends Phaser.Scene {
     constructor() {
@@ -43,20 +44,11 @@ export class Start extends Phaser.Scene {
         this.bigBoomCount = 0; // Number of big booms to fire at once (0-5)
         this.bulletScale = 1.0; // Bullet size scale (1.0 - 4.0)
         this.bulletSizeUpgradeCount = 0; // Track number of bullet size upgrades
-        this.showingPowerUpDialog = false;
         this.regenerationRate = 0; // Health regeneration per second (0-2)
         this.lastRegenerationTime = 0; // Track last regeneration tick
 
-        // Power-up dialog gamepad support
-        this.selectedPowerUpIndex = 0; // Currently selected power-up option (0-based)
-        this.availablePowerUpsData = []; // Store available power-ups for gamepad navigation
-        this.powerUpGamepadTimer = null; // Timer for gamepad repeat
-        this.currentHeldGamepadDirection = null; // Track held gamepad direction
-        this.previousButtonStates = {}; // Track previous gamepad button states
-
-        // Power-up dialog keyboard support
-        this.powerUpKeyTimer = null; // Timer for keyboard repeat
-        this.currentHeldPowerUpKey = null; // Track held keyboard direction
+        // Power-up manager
+        this.powerUpManager = new PowerUpManager(this);
 
         // Damage system
         this.baseBulletDamage = 10; // Base damage for bullets
@@ -258,7 +250,6 @@ export class Start extends Phaser.Scene {
         this.bigBoomCount = 0;
         this.bulletScale = 1.0;
         // Don't reset regenerationRate here - it will be set properly from character data
-        this.showingPowerUpDialog = false;
 
         // Reset session timer
         this.sessionStartTime = Date.now();
@@ -288,12 +279,8 @@ export class Start extends Phaser.Scene {
         // Reset gamepad state
         this.gamepad = null;
 
-        // Reset power-up dialog gamepad state
-        this.selectedPowerUpIndex = 0;
-        this.availablePowerUpsData = [];
-        this.powerUpGamepadTimer = null;
-        this.currentHeldGamepadDirection = null;
-        this.previousButtonStates = {};
+        // Reset power-up manager state
+        this.powerUpManager.cleanupInputStates();
     }
 
     preload() {
@@ -1106,7 +1093,7 @@ export class Start extends Phaser.Scene {
             }
 
             // Show power-up selection dialog on level up
-            this.showPowerUpDialog();
+            this.powerUpManager.showDialog();
         }
 
         const progressPercent =
@@ -1125,653 +1112,6 @@ export class Start extends Phaser.Scene {
     addExperience(amount) {
         this.experience += amount;
         this.updateExperienceBar();
-    }
-
-    showPowerUpDialog() {
-        if (this.showingPowerUpDialog) return;
-
-        // Don't show dialog if at max level (level 20)
-        if (this.level >= 20) return;
-
-        this.showingPowerUpDialog = true;
-        this.physics.pause(); // Pause the game
-
-        // Pause the spawn timer to prevent monsters from spawning during power-up selection
-        if (this.spawnTimer) {
-            this.spawnTimer.paused = true;
-        }
-
-        // Create semi-transparent overlay
-        this.powerUpOverlay = this.add.rectangle(
-            this.cameras.main.centerX,
-            this.cameras.main.centerY,
-            this.cameras.main.width,
-            this.cameras.main.height,
-            0x000000,
-            0.7
-        );
-        this.powerUpOverlay.setScrollFactor(0);
-        this.powerUpOverlay.setDepth(2000);
-
-        // Create dialog box
-        this.powerUpDialog = this.add.rectangle(
-            this.cameras.main.centerX,
-            this.cameras.main.centerY,
-            400,
-            300,
-            0x333333
-        );
-        this.powerUpDialog.setScrollFactor(0);
-        this.powerUpDialog.setDepth(2001);
-        this.powerUpDialog.setStrokeStyle(4, 0xffffff);
-
-        // Title
-        this.powerUpTitle = this.add.text(
-            this.cameras.main.centerX,
-            this.cameras.main.centerY - 100,
-            "LEVEL UP!\nChoose a Power-Up:",
-            {
-                fontSize: "24px",
-                fill: "#ffffff",
-                align: "center",
-            }
-        );
-        this.powerUpTitle.setOrigin(0.5);
-        this.powerUpTitle.setScrollFactor(0);
-        this.powerUpTitle.setDepth(2002);
-
-        // Power-up options
-        const currentFireRateMs = this.fireRate;
-        const newFireRateMs = Math.max(100, this.fireRate - 50);
-        const boomerangCount = this.boomerangCount;
-        const bigBoomCount = this.bigBoomCount;
-        const bulletScale = this.bulletScale;
-
-        // Collect all available power-up options
-        const availablePowerUps = [];
-
-        // Add attack speed option only if not at minimum (100ms)
-        if (currentFireRateMs > 100) {
-            availablePowerUps.push({
-                title: "Attack Speed +50ms",
-                description: `Fire rate: ${currentFireRateMs}ms → ${newFireRateMs}ms`,
-                type: 1,
-            });
-        }
-
-        // Add boomerang option only if not at max (8)
-        if (boomerangCount < 8) {
-            availablePowerUps.push({
-                title: "Extra Boomerang",
-                description: `Boomerangs: ${boomerangCount} → ${Math.min(
-                    8,
-                    boomerangCount + 1
-                )}`,
-                type: 2,
-            });
-        }
-
-        // Add big boom option only if not at max (5)
-        if (bigBoomCount < 5) {
-            availablePowerUps.push({
-                title: "Extra Big Boom",
-                description: `Big Booms: ${bigBoomCount} → ${Math.min(
-                    5,
-                    bigBoomCount + 1
-                )}`,
-                type: 3,
-            });
-        }
-
-        // Add bullet size option only if not at max (4.0x scale)
-        if (bulletScale < 4.0) {
-            const newBulletScale = Math.min(4.0, bulletScale + 0.5);
-            const nextUpgradeCount = this.bulletSizeUpgradeCount + 1;
-            let description = `Bullet size: ${bulletScale.toFixed(
-                2
-            )}x → ${newBulletScale.toFixed(2)}x`;
-            if (nextUpgradeCount > 3) {
-                description += ` (Penetrates enemies!)`;
-            }
-            availablePowerUps.push({
-                title: "Bigger Bullets",
-                description: description,
-                type: 4,
-            });
-        }
-
-        // Add damage upgrade option
-        if (this.baseBulletDamage < 50) {
-            // Cap at 50 damage
-            const newDamage = Math.min(50, this.baseBulletDamage + 5);
-            availablePowerUps.push({
-                title: "Increased Damage",
-                description: `Damage: ${this.baseBulletDamage} → ${newDamage}`,
-                type: 5,
-            });
-        }
-
-        // Add regeneration option if not at max (2.0 per second)
-        if (this.regenerationRate < 2.0) {
-            const newRegenRate = Math.min(2.0, this.regenerationRate + 0.2);
-            availablePowerUps.push({
-                title: "Health Regeneration",
-                description: `Regen: ${this.regenerationRate.toFixed(
-                    1
-                )}/s → ${newRegenRate.toFixed(1)}/s`,
-                type: 6,
-            });
-        }
-
-        // Randomly select up to 3 options from available power-ups
-        const maxOptions = Math.min(3, availablePowerUps.length);
-        const selectedPowerUps = Phaser.Utils.Array.Shuffle(
-            availablePowerUps
-        ).slice(0, maxOptions);
-
-        // Store for gamepad navigation
-        this.availablePowerUpsData = selectedPowerUps;
-        this.selectedPowerUpIndex = 0; // Reset to first option
-
-        // Create power-up options with sequential numbering
-        selectedPowerUps.forEach((powerUp, index) => {
-            this.createPowerUpOption(
-                index + 1,
-                powerUp.title,
-                powerUp.description,
-                powerUp.type
-            );
-        });
-
-        // Initialize gamepad button states for power-up dialog
-        this.previousButtonStates = {};
-
-        // Update visual highlight for gamepad navigation
-        this.updatePowerUpSelection();
-    }
-
-    createPowerUpOption(index, title, description, powerUpType) {
-        const y = this.cameras.main.centerY - 40 + (index - 1) * 60;
-
-        // Option background
-        const optionBg = this.add.rectangle(
-            this.cameras.main.centerX,
-            y,
-            350,
-            50,
-            0x555555
-        );
-        optionBg.setScrollFactor(0);
-        optionBg.setDepth(2001);
-        optionBg.setStrokeStyle(2, 0x888888);
-        optionBg.setInteractive();
-
-        // Option text
-        const optionText = this.add.text(
-            this.cameras.main.centerX,
-            y - 8,
-            `${index}. ${title}`,
-            {
-                fontSize: "18px",
-                fill: "#ffffff",
-                fontStyle: "bold",
-            }
-        );
-        optionText.setOrigin(0.5);
-        optionText.setScrollFactor(0);
-        optionText.setDepth(2002);
-
-        // Description text
-        const descText = this.add.text(
-            this.cameras.main.centerX,
-            y + 12,
-            description,
-            {
-                fontSize: "12px",
-                fill: "#cccccc",
-            }
-        );
-        descText.setOrigin(0.5);
-        descText.setScrollFactor(0);
-        descText.setDepth(2002);
-
-        // Store references for cleanup
-        if (!this.powerUpElements) this.powerUpElements = [];
-        if (!this.powerUpKeys) this.powerUpKeys = [];
-        this.powerUpElements.push(optionBg, optionText, descText);
-
-        // Store option background for gamepad selection highlighting
-        optionBg.powerUpIndex = index - 1; // Store 0-based index for gamepad navigation
-
-        // Add hover effects
-        optionBg.on("pointerover", () => {
-            optionBg.setFillStyle(0x666666);
-        });
-
-        optionBg.on("pointerout", () => {
-            // Only reset color if not selected via gamepad
-            if (this.selectedPowerUpIndex !== optionBg.powerUpIndex) {
-                optionBg.setFillStyle(0x555555);
-            }
-        });
-
-        // Add click handler
-        optionBg.on("pointerdown", () => {
-            this.selectPowerUp(powerUpType);
-        });
-
-        // Add keyboard input and store reference for cleanup
-        let keyCode;
-        switch (index) {
-            case 1:
-                keyCode = Phaser.Input.Keyboard.KeyCodes.ONE;
-                break;
-            case 2:
-                keyCode = Phaser.Input.Keyboard.KeyCodes.TWO;
-                break;
-            case 3:
-                keyCode = Phaser.Input.Keyboard.KeyCodes.THREE;
-                break;
-            case 4:
-                keyCode = Phaser.Input.Keyboard.KeyCodes.FOUR;
-                break;
-        }
-
-        const key = this.input.keyboard.addKey(keyCode);
-        key.on("down", () => {
-            this.selectPowerUp(powerUpType);
-        });
-        this.powerUpKeys.push(key);
-    }
-
-    selectPowerUp(powerUpIndex) {
-        switch (powerUpIndex) {
-            case 1:
-                // Attack Speed -50ms (minimum 100ms)
-                this.fireRate = Math.max(100, this.fireRate - 50);
-                break;
-            case 2:
-                // Extra Boomerang
-                this.boomerangCount = Math.min(8, this.boomerangCount + 1);
-                break;
-            case 3:
-                // Extra Big Boom
-                this.bigBoomCount = Math.min(5, this.bigBoomCount + 1);
-                break;
-            case 4:
-                // Bigger Bullets
-                this.bulletScale = Math.min(4.0, this.bulletScale + 0.5);
-                this.bulletSizeUpgradeCount++;
-                break;
-            case 5:
-                // Increased Damage
-                this.baseBulletDamage = Math.min(50, this.baseBulletDamage + 5);
-                break;
-            case 6:
-                // Health Regeneration
-                this.regenerationRate = Math.min(
-                    2.0,
-                    this.regenerationRate + 0.2
-                );
-                break;
-        }
-
-        // Update character info text to reflect new stats
-        if (this.selectedCharacter && this.characterInfoText) {
-            this.characterInfoText.setText(this.getCharacterInfoText());
-        }
-
-        this.hidePowerUpDialog();
-    }
-
-    hidePowerUpDialog() {
-        this.showingPowerUpDialog = false;
-        this.physics.resume(); // Resume the game
-
-        // Resume the spawn timer
-        if (this.spawnTimer) {
-            this.spawnTimer.paused = false;
-        }
-
-        // Clean up dialog elements
-        if (this.powerUpOverlay) {
-            this.powerUpOverlay.destroy();
-            this.powerUpOverlay = null;
-        }
-
-        if (this.powerUpDialog) {
-            this.powerUpDialog.destroy();
-            this.powerUpDialog = null;
-        }
-
-        if (this.powerUpTitle) {
-            this.powerUpTitle.destroy();
-            this.powerUpTitle = null;
-        }
-
-        if (this.powerUpElements) {
-            this.powerUpElements.forEach((element) => element.destroy());
-            this.powerUpElements = [];
-        }
-
-        // Remove only power-up specific keyboard listeners
-        if (this.powerUpKeys) {
-            this.powerUpKeys.forEach((key) => {
-                key.removeAllListeners();
-                this.input.keyboard.removeKey(key);
-            });
-            this.powerUpKeys = [];
-        }
-
-        // Clean up power-up dialog gamepad state
-        this.selectedPowerUpIndex = 0;
-        this.availablePowerUpsData = [];
-        if (this.powerUpGamepadTimer) {
-            this.powerUpGamepadTimer.destroy();
-            this.powerUpGamepadTimer = null;
-        }
-        this.currentHeldGamepadDirection = null;
-        this.previousButtonStates = {};
-
-        // Clean up power-up dialog keyboard state
-        if (this.powerUpKeyTimer) {
-            this.powerUpKeyTimer.destroy();
-            this.powerUpKeyTimer = null;
-        }
-        this.currentHeldPowerUpKey = null;
-    }
-
-    updatePowerUpSelection() {
-        if (!this.powerUpElements || this.powerUpElements.length === 0) return;
-
-        // Update visual highlighting for all power-up options
-        this.powerUpElements.forEach((element, elementIndex) => {
-            // Only process background rectangles (every 3rd element: bg, text, desc)
-            if (elementIndex % 3 === 0) {
-                const optionBg = element;
-                const optionIndex = Math.floor(elementIndex / 3);
-
-                if (optionIndex === this.selectedPowerUpIndex) {
-                    // Highlight selected option
-                    optionBg.setFillStyle(0x888888);
-                    optionBg.setStrokeStyle(3, 0xffff00); // Yellow border for selected
-                } else {
-                    // Reset non-selected options
-                    optionBg.setFillStyle(0x555555);
-                    optionBg.setStrokeStyle(2, 0x888888); // Default border
-                }
-            }
-        });
-    }
-
-    handlePowerUpGamepadNavigation() {
-        if (
-            !this.gamepad ||
-            !this.showingPowerUpDialog ||
-            this.availablePowerUpsData.length === 0
-        ) {
-            return;
-        }
-
-        let directionPressed = null;
-        let deltaIndex = 0;
-        const deadzone = 0.3;
-
-        // Check D-pad
-        if (this.gamepad.up) {
-            directionPressed = "up";
-            deltaIndex = -1;
-        } else if (this.gamepad.down) {
-            directionPressed = "down";
-            deltaIndex = 1;
-        }
-        // Check left analog stick if no D-pad input
-        else if (this.gamepad.leftStick) {
-            const y = this.gamepad.leftStick.y;
-
-            if (Math.abs(y) > deadzone) {
-                if (y < -deadzone) {
-                    directionPressed = "up";
-                    deltaIndex = -1;
-                } else if (y > deadzone) {
-                    directionPressed = "down";
-                    deltaIndex = 1;
-                }
-            }
-        }
-
-        if (directionPressed) {
-            // If this is a new direction or different direction
-            if (this.currentHeldGamepadDirection !== directionPressed) {
-                this.currentHeldGamepadDirection = directionPressed;
-                // Move immediately on first press
-                this.movePowerUpSelection(deltaIndex);
-
-                // Clear any existing timer
-                if (this.powerUpGamepadTimer) {
-                    this.powerUpGamepadTimer.destroy();
-                }
-
-                // Start repeat timer
-                this.powerUpGamepadTimer = this.time.delayedCall(500, () => {
-                    this.startPowerUpGamepadRepeat(deltaIndex);
-                });
-            }
-        } else {
-            // No direction is pressed, stop repeat
-            this.stopPowerUpGamepadRepeat();
-        }
-
-        // Handle gamepad selection (button 0 = B button)
-        if (this.gamepad.buttons) {
-            const button0 = this.gamepad.buttons[0];
-
-            // Manual justDown detection
-            const button0WasPressed = this.previousButtonStates[0] || false;
-            const button0IsPressed = button0 && button0.pressed;
-            const button0JustPressed = button0IsPressed && !button0WasPressed;
-
-            // Update previous state
-            this.previousButtonStates[0] = button0IsPressed;
-
-            // Check for button press
-            if (button0JustPressed || (button0 && button0.justDown)) {
-                console.log(
-                    "Gamepad B button (button 0) pressed - selecting power-up"
-                );
-                this.selectCurrentPowerUp();
-            }
-        }
-    }
-
-    handlePowerUpKeyNavigation() {
-        if (
-            !this.showingPowerUpDialog ||
-            this.availablePowerUpsData.length === 0
-        ) {
-            return;
-        }
-
-        let keyPressed = null;
-        let deltaIndex = 0;
-
-        // Check arrow keys
-        if (this.cursors.up.isDown) {
-            keyPressed = "up";
-            deltaIndex = -1;
-        } else if (this.cursors.down.isDown) {
-            keyPressed = "down";
-            deltaIndex = 1;
-        }
-
-        if (keyPressed) {
-            // If this is a new key press or different key
-            if (this.currentHeldPowerUpKey !== keyPressed) {
-                this.currentHeldPowerUpKey = keyPressed;
-                // Move immediately on first press
-                this.movePowerUpSelection(deltaIndex);
-
-                // Clear any existing timer
-                if (this.powerUpKeyTimer) {
-                    this.powerUpKeyTimer.destroy();
-                }
-
-                // Start repeat timer
-                this.powerUpKeyTimer = this.time.delayedCall(500, () => {
-                    this.startPowerUpKeyRepeat(deltaIndex);
-                });
-            }
-        } else {
-            // No arrow key is pressed, stop repeat
-            this.stopPowerUpKeyRepeat();
-        }
-
-        // Handle Enter key selection
-        if (this.enterKey && Phaser.Input.Keyboard.JustDown(this.enterKey)) {
-            console.log("Enter key pressed - selecting power-up");
-            this.selectCurrentPowerUp();
-        }
-    }
-
-    startPowerUpKeyRepeat(deltaIndex) {
-        // Clear existing repeat timer
-        if (this.powerUpKeyTimer) {
-            this.powerUpKeyTimer.destroy();
-        }
-
-        // Create repeating timer
-        this.powerUpKeyTimer = this.time.addEvent({
-            delay: 150,
-            callback: () => {
-                // Only continue if the key is still held down
-                if (
-                    this.currentHeldPowerUpKey &&
-                    this.isPowerUpKeyStillDown()
-                ) {
-                    this.movePowerUpSelection(deltaIndex);
-                } else {
-                    this.stopPowerUpKeyRepeat();
-                }
-            },
-            loop: true,
-        });
-    }
-
-    isPowerUpKeyStillDown() {
-        if (!this.cursors) {
-            return false;
-        }
-
-        switch (this.currentHeldPowerUpKey) {
-            case "up":
-                return this.cursors.up.isDown;
-            case "down":
-                return this.cursors.down.isDown;
-            default:
-                return false;
-        }
-    }
-
-    stopPowerUpKeyRepeat() {
-        if (this.powerUpKeyTimer) {
-            this.powerUpKeyTimer.destroy();
-            this.powerUpKeyTimer = null;
-        }
-        this.currentHeldPowerUpKey = null;
-    }
-
-    movePowerUpSelection(deltaIndex) {
-        if (this.availablePowerUpsData.length === 0) return;
-
-        this.selectedPowerUpIndex += deltaIndex;
-
-        // Wrap around
-        if (this.selectedPowerUpIndex < 0) {
-            this.selectedPowerUpIndex = this.availablePowerUpsData.length - 1;
-        } else if (
-            this.selectedPowerUpIndex >= this.availablePowerUpsData.length
-        ) {
-            this.selectedPowerUpIndex = 0;
-        }
-
-        console.log(
-            `Power-up selection moved to index: ${this.selectedPowerUpIndex}`
-        );
-        this.updatePowerUpSelection();
-    }
-
-    startPowerUpGamepadRepeat(deltaIndex) {
-        // Clear existing repeat timer
-        if (this.powerUpGamepadTimer) {
-            this.powerUpGamepadTimer.destroy();
-        }
-
-        // Create repeating timer
-        this.powerUpGamepadTimer = this.time.addEvent({
-            delay: 150,
-            callback: () => {
-                // Only continue if the direction is still held down
-                if (
-                    this.currentHeldGamepadDirection &&
-                    this.isPowerUpGamepadDirectionStillDown()
-                ) {
-                    this.movePowerUpSelection(deltaIndex);
-                } else {
-                    this.stopPowerUpGamepadRepeat();
-                }
-            },
-            loop: true,
-        });
-    }
-
-    isPowerUpGamepadDirectionStillDown() {
-        if (!this.gamepad) {
-            return false;
-        }
-
-        const deadzone = 0.3;
-
-        switch (this.currentHeldGamepadDirection) {
-            case "up":
-                return (
-                    this.gamepad.up ||
-                    (this.gamepad.leftStick &&
-                        this.gamepad.leftStick.y < -deadzone)
-                );
-            case "down":
-                return (
-                    this.gamepad.down ||
-                    (this.gamepad.leftStick &&
-                        this.gamepad.leftStick.y > deadzone)
-                );
-            default:
-                return false;
-        }
-    }
-
-    stopPowerUpGamepadRepeat() {
-        if (this.powerUpGamepadTimer) {
-            this.powerUpGamepadTimer.destroy();
-            this.powerUpGamepadTimer = null;
-        }
-        this.currentHeldGamepadDirection = null;
-    }
-
-    selectCurrentPowerUp() {
-        if (
-            this.availablePowerUpsData.length === 0 ||
-            this.selectedPowerUpIndex < 0 ||
-            this.selectedPowerUpIndex >= this.availablePowerUpsData.length
-        ) {
-            return;
-        }
-
-        const selectedPowerUp =
-            this.availablePowerUpsData[this.selectedPowerUpIndex];
-        console.log(
-            `Selecting power-up via gamepad: ${selectedPowerUp.title} (type: ${selectedPowerUp.type})`
-        );
-        this.selectPowerUp(selectedPowerUp.type);
     }
 
     onPlayerHitMonster(player, monster) {
@@ -1998,7 +1338,6 @@ export class Start extends Phaser.Scene {
         this.regenerationRate = this.selectedCharacter
             ? this.selectedCharacter.regen || 0
             : 0;
-        this.showingPowerUpDialog = false;
 
         // Reset damage
         this.baseBulletDamage = 10;
@@ -2045,7 +1384,7 @@ export class Start extends Phaser.Scene {
     spawnMonster() {
         if (
             !this.isGameActive() ||
-            this.showingPowerUpDialog ||
+            this.powerUpManager.showingDialog ||
             !this.isGroupValid(this.monsters)
         )
             return;
@@ -2483,10 +1822,10 @@ export class Start extends Phaser.Scene {
         // Now check if game is active for normal gameplay
         if (!this.isGameActive()) return;
 
-        // Handle power-up dialog gamepad input when dialog is showing
-        if (this.showingPowerUpDialog) {
-            this.handlePowerUpGamepadNavigation();
-            this.handlePowerUpKeyNavigation();
+        // Handle power-up dialog input when dialog is showing
+        if (this.powerUpManager.showingDialog) {
+            this.powerUpManager.handleGamepadNavigation();
+            this.powerUpManager.handleKeyNavigation();
             return;
         }
 
@@ -2494,19 +1833,7 @@ export class Start extends Phaser.Scene {
         if (!this.isSpriteValid(this.player) || !this.cursors) return;
 
         // Handle regeneration
-        if (this.regenerationRate > 0 && this.health < this.maxHealth) {
-            const currentTime = this.time.now;
-            if (currentTime - this.lastRegenerationTime >= 1000) {
-                // Every second
-                const healAmount = this.regenerationRate;
-                this.health = Math.min(
-                    this.maxHealth,
-                    this.health + healAmount
-                );
-                this.updateHealthBar();
-                this.lastRegenerationTime = currentTime;
-            }
-        }
+        updateRegeneration(this);
 
         this.cleanupBullets();
         this.updateBoomerangs();
