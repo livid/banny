@@ -88,18 +88,23 @@ export class PowerUpManager {
         // Collect all available power-up options
         const availablePowerUps = [];
 
-        // Attack speed option
-        const currentFireRateMs = this.scene.fireRate;
-        const newFireRateMs = Math.max(100, this.scene.fireRate - 50);
-        if (currentFireRateMs > 100) {
-            availablePowerUps.push({
-                title: "Attack Speed +50ms",
-                description: `Fire rate: ${currentFireRateMs}ms → ${newFireRateMs}ms`,
-                type: 1,
-            });
+        // Get the character's attack type
+        const attackType = this.scene.selectedCharacter?.attackType || "bullet";
+
+        // Attack speed option - bullet only
+        if (attackType === "bullet") {
+            const currentFireRateMs = this.scene.fireRate;
+            const newFireRateMs = Math.max(100, this.scene.fireRate - 50);
+            if (currentFireRateMs > 100) {
+                availablePowerUps.push({
+                    title: "Attack Speed +50ms",
+                    description: `Fire rate: ${currentFireRateMs}ms → ${newFireRateMs}ms`,
+                    type: 1,
+                });
+            }
         }
 
-        // Boomerang option
+        // Boomerang option - available to all
         const boomerangCount = this.scene.boomerangCount;
         if (boomerangCount < 8) {
             availablePowerUps.push({
@@ -112,7 +117,7 @@ export class PowerUpManager {
             });
         }
 
-        // Big boom option
+        // Big boom option - available to all
         const bigBoomCount = this.scene.bigBoomCount;
         if (bigBoomCount < 5) {
             availablePowerUps.push({
@@ -125,35 +130,65 @@ export class PowerUpManager {
             });
         }
 
-        // Bullet size option
-        const bulletScale = this.scene.bulletScale;
-        if (bulletScale < 4.0) {
-            const newBulletScale = Math.min(4.0, bulletScale + 0.5);
-            const nextUpgradeCount = this.scene.bulletSizeUpgradeCount + 1;
-            let description = `Bullet size: ${bulletScale.toFixed(
-                2
-            )}x → ${newBulletScale.toFixed(2)}x`;
-            if (nextUpgradeCount > 3) {
-                description += ` (Penetrates enemies!)`;
+        // Bullet size option - bullet only
+        if (attackType === "bullet") {
+            const bulletScale = this.scene.bulletScale;
+            if (bulletScale < 4.0) {
+                const newBulletScale = Math.min(4.0, bulletScale + 0.5);
+                const nextUpgradeCount = this.scene.bulletSizeUpgradeCount + 1;
+                let description = `Bullet size: ${bulletScale.toFixed(
+                    2
+                )}x → ${newBulletScale.toFixed(2)}x`;
+                if (nextUpgradeCount > 3) {
+                    description += ` (Penetrates enemies!)`;
+                }
+                availablePowerUps.push({
+                    title: "Bigger Bullets",
+                    description: description,
+                    type: 4,
+                });
             }
-            availablePowerUps.push({
-                title: "Bigger Bullets",
-                description: description,
-                type: 4,
-            });
         }
 
-        // Damage upgrade option
-        if (this.scene.baseBulletDamage < 50) {
-            const newDamage = Math.min(50, this.scene.baseBulletDamage + 5);
-            availablePowerUps.push({
-                title: "Increased Damage",
-                description: `Damage: ${this.scene.baseBulletDamage} → ${newDamage}`,
-                type: 5,
-            });
+        // Bullet damage upgrade option - bullet only
+        if (attackType === "bullet") {
+            if (this.scene.baseBulletDamage < 50) {
+                const newDamage = Math.min(50, this.scene.baseBulletDamage + 5);
+                availablePowerUps.push({
+                    title: "Increased Bullet Damage",
+                    description: `Damage: ${this.scene.baseBulletDamage} → ${newDamage}`,
+                    type: 5,
+                });
+            }
         }
 
-        // Regeneration option
+        // Flamethrower range upgrade - flamethrower only
+        if (attackType === "flamethrower") {
+            const currentRange = this.scene.flamethrowerRange || 300;
+            const newRange = Math.min(1000, currentRange + 50);
+            if (currentRange < 1000) {
+                availablePowerUps.push({
+                    title: "Increased Range",
+                    description: `Range: ${currentRange}px → ${newRange}px`,
+                    type: 7,
+                });
+            }
+        }
+
+        // Flamethrower damage upgrade - flamethrower only
+        if (attackType === "flamethrower") {
+            const currentDamage = this.scene.flamethrowerDamage || 2;
+            const newDamage = Math.min(12, currentDamage + 1);
+            if (currentDamage < 12) {
+                availablePowerUps.push({
+                    title: "Increased Flame Damage",
+                    description: `Damage: ${currentDamage} → ${newDamage}`,
+                    type: 8,
+                });
+            }
+        }
+
+        // Regeneration option - available to all
         if (this.scene.regenerationRate < 2.0) {
             const newRegenRate = Math.min(
                 2.0,
@@ -284,7 +319,7 @@ export class PowerUpManager {
     selectPowerUp(powerUpIndex) {
         switch (powerUpIndex) {
             case 1:
-                // Attack Speed -50ms (minimum 100ms)
+                // Attack Speed -50ms (minimum 100ms) - bullet only
                 this.scene.fireRate = Math.max(100, this.scene.fireRate - 50);
                 break;
             case 2:
@@ -302,7 +337,7 @@ export class PowerUpManager {
                 );
                 break;
             case 4:
-                // Bigger Bullets
+                // Bigger Bullets - bullet only
                 this.scene.bulletScale = Math.min(
                     4.0,
                     this.scene.bulletScale + 0.5
@@ -310,7 +345,7 @@ export class PowerUpManager {
                 this.scene.bulletSizeUpgradeCount++;
                 break;
             case 5:
-                // Increased Damage
+                // Increased Bullet Damage - bullet only
                 this.scene.baseBulletDamage = Math.min(
                     50,
                     this.scene.baseBulletDamage + 5
@@ -321,6 +356,20 @@ export class PowerUpManager {
                 this.scene.regenerationRate = Math.min(
                     2.0,
                     this.scene.regenerationRate + 0.2
+                );
+                break;
+            case 7:
+                // Flamethrower Range - flamethrower only
+                this.scene.flamethrowerRange = Math.min(
+                    1000,
+                    (this.scene.flamethrowerRange || 300) + 50
+                );
+                break;
+            case 8:
+                // Flamethrower Damage - flamethrower only
+                this.scene.flamethrowerDamage = Math.min(
+                    12,
+                    (this.scene.flamethrowerDamage || 2) + 1
                 );
                 break;
         }
