@@ -17,6 +17,7 @@ export function initFlamethrower(scene) {
     scene.flamethrowerDamageInterval = 200; // 200ms damage interval
     scene.flamethrowerRange = 300; // 300px range
     scene.flamethrowerDamage = 2; // 2 damage per tick
+    scene.isFlamethrowerSoundPlaying = false; // Track if sound is currently playing
 
     // Track flying particles
     scene.flyingParticles = [];
@@ -34,8 +35,15 @@ export function updateFlamethrower(scene) {
         !scene.selectedCharacter ||
         scene.selectedCharacter.attackType !== "flamethrower"
     ) {
-        // Not using flamethrower, reset state
+        // Not using flamethrower, reset state and stop sound
         scene.isFlamethrowerActive = false;
+        if (
+            scene.isFlamethrowerSoundPlaying &&
+            scene.flamethrowerSound?.isPlaying
+        ) {
+            scene.flamethrowerSound.stop();
+            scene.isFlamethrowerSoundPlaying = false;
+        }
         return;
     }
 
@@ -46,9 +54,31 @@ export function updateFlamethrower(scene) {
     const currentTime = scene.time.now;
 
     // Flamethrower is active if character has it equipped and there are particles or we're in firing mode
+    const wasFlamethrowerActive = scene.isFlamethrowerActive;
     scene.isFlamethrowerActive =
         scene.flyingParticles.length > 0 ||
         currentTime - scene.lastShotTime < scene.fireRate;
+
+    // Handle flamethrower sound - start when becoming active, stop when becoming inactive
+    if (scene.isFlamethrowerActive && !scene.isFlamethrowerSoundPlaying) {
+        // Start the looped sound
+        if (
+            scene.flamethrowerSound &&
+            scene.sound?.context?.state === "running"
+        ) {
+            scene.flamethrowerSound.play();
+            scene.isFlamethrowerSoundPlaying = true;
+        }
+    } else if (
+        !scene.isFlamethrowerActive &&
+        scene.isFlamethrowerSoundPlaying
+    ) {
+        // Stop the sound when flamethrower becomes inactive
+        if (scene.flamethrowerSound?.isPlaying) {
+            scene.flamethrowerSound.stop();
+        }
+        scene.isFlamethrowerSoundPlaying = false;
+    }
 
     // Auto-fire - constantly shooting when character has flamethrower
     if (currentTime - scene.lastShotTime >= scene.fireRate) {
@@ -96,9 +126,6 @@ export function updateFlamethrower(scene) {
  */
 function createFlyingParticles(scene, targetX, targetY) {
     if (!scene.fireParticles) return;
-
-    // Play flamethrower sound effect
-    scene.playSoundSafe(scene.flamethrowerSound);
 
     const player = scene.player;
     const particleCount = 25; // More particles for better effect
@@ -321,7 +348,7 @@ function handleFlamethrowerDamage(scene, currentTime) {
 export function onFlamethrowerHitMonster(scene, monster) {
     if (!scene.isSpriteValid(monster)) return;
 
-    scene.playSoundSafe(scene.hurtSound);
+    scene.playSoundSafe(scene.burnSound);
 
     // Calculate damage with distance-based variation (similar to other weapons)
     const baseDamage = scene.flamethrowerDamage;
@@ -368,6 +395,15 @@ export function onFlamethrowerHitMonster(scene, monster) {
  * @param {Phaser.Scene} scene - The game scene
  */
 export function cleanupFlamethrower(scene) {
+    // Stop flamethrower sound if playing
+    if (
+        scene.isFlamethrowerSoundPlaying &&
+        scene.flamethrowerSound?.isPlaying
+    ) {
+        scene.flamethrowerSound.stop();
+        scene.isFlamethrowerSoundPlaying = false;
+    }
+
     if (scene.fireParticles) {
         scene.fireParticles.clear(true, true);
     }

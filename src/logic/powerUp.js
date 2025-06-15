@@ -168,7 +168,7 @@ export class PowerUpManager {
             const newRange = Math.min(1000, currentRange + 50);
             if (currentRange < 1000) {
                 availablePowerUps.push({
-                    title: "Increased Range",
+                    title: "Increased Flame Range",
                     description: `Range: ${currentRange}px → ${newRange}px`,
                     type: 7,
                 });

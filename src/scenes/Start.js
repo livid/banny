@@ -320,6 +320,7 @@ export class Start extends Phaser.Scene {
         this.load.audio("hurt", "assets/sfx/hurt-1.wav");
         this.load.audio("male-hurt", "assets/sfx/male-hurt-1.wav");
         this.load.audio("flamethrower", "assets/sfx/flamethrower.mp3");
+        this.load.audio("burn", "assets/sfx/burn.mp3");
 
         // Load background music
         this.load.audio(
@@ -862,8 +863,10 @@ export class Start extends Phaser.Scene {
         this.hurtSound = this.sound.add("hurt", { volume: 0.75 });
         this.maleHurtSound = this.sound.add("male-hurt", { volume: 0.5 });
         this.flamethrowerSound = this.sound.add("flamethrower", {
-            volume: 0.5,
+            volume: 0.3,
+            loop: true,
         });
+        this.burnSound = this.sound.add("burn", { volume: 0.6 });
 
         // Add background music - use global registry to prevent overlaps
         let globalBackgroundMusic = this.registry.get("backgroundMusic");
@@ -876,7 +879,7 @@ export class Start extends Phaser.Scene {
             }
 
             this.backgroundMusic = this.sound.add("background-music", {
-                volume: 0.1,
+                volume: 0.05,
                 loop: true,
             });
             this.backgroundMusic.play();
@@ -1230,6 +1233,15 @@ export class Start extends Phaser.Scene {
     triggerGameOver() {
         this.gameOver = true;
 
+        // Stop flamethrower sound if playing
+        if (
+            this.isFlamethrowerSoundPlaying &&
+            this.flamethrowerSound?.isPlaying
+        ) {
+            this.flamethrowerSound.stop();
+            this.isFlamethrowerSoundPlaying = false;
+        }
+
         // Stop session timer
         if (this.sessionTimer) {
             this.sessionTimer.destroy();
@@ -1268,6 +1280,15 @@ export class Start extends Phaser.Scene {
 
     triggerVictory() {
         this.victory = true;
+
+        // Stop flamethrower sound if playing
+        if (
+            this.isFlamethrowerSoundPlaying &&
+            this.flamethrowerSound?.isPlaying
+        ) {
+            this.flamethrowerSound.stop();
+            this.isFlamethrowerSoundPlaying = false;
+        }
 
         // Stop session timer
         if (this.sessionTimer) {

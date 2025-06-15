@@ -272,7 +272,7 @@ export class CharacterSelection extends Phaser.Scene {
             }
 
             globalBackgroundMusic = this.sound.add("background-music", {
-                volume: 0.3,
+                volume: 0.05,
                 loop: true,
             });
             globalBackgroundMusic.play();
