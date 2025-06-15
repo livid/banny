@@ -18,6 +18,7 @@ export function initFlamethrower(scene) {
     scene.flamethrowerRange = 300; // 300px range
     scene.flamethrowerDamage = 2; // 2 damage per tick
     scene.isFlamethrowerSoundPlaying = false; // Track if sound is currently playing
+    scene.isBurnSoundPlaying = false; // Track if burn sound is currently playing
 
     // Track flying particles
     scene.flyingParticles = [];
@@ -35,7 +36,7 @@ export function updateFlamethrower(scene) {
         !scene.selectedCharacter ||
         scene.selectedCharacter.attackType !== "flamethrower"
     ) {
-        // Not using flamethrower, reset state and stop sound
+        // Not using flamethrower, reset state and stop sounds
         scene.isFlamethrowerActive = false;
         if (
             scene.isFlamethrowerSoundPlaying &&
@@ -43,6 +44,10 @@ export function updateFlamethrower(scene) {
         ) {
             scene.flamethrowerSound.stop();
             scene.isFlamethrowerSoundPlaying = false;
+        }
+        if (scene.isBurnSoundPlaying && scene.burnSound?.isPlaying) {
+            scene.burnSound.stop();
+            scene.isBurnSoundPlaying = false;
         }
         return;
     }
@@ -78,6 +83,12 @@ export function updateFlamethrower(scene) {
             scene.flamethrowerSound.stop();
         }
         scene.isFlamethrowerSoundPlaying = false;
+
+        // Also stop burn sound when flamethrower becomes inactive
+        if (scene.isBurnSoundPlaying && scene.burnSound?.isPlaying) {
+            scene.burnSound.stop();
+            scene.isBurnSoundPlaying = false;
+        }
     }
 
     // Auto-fire - constantly shooting when character has flamethrower
@@ -338,6 +349,21 @@ function handleFlamethrowerDamage(scene, currentTime) {
     monstersHit.forEach((monster) => {
         onFlamethrowerHitMonster(scene, monster);
     });
+
+    // Manage burn sound loop - start if hitting monsters, stop if not
+    if (monstersHit.length > 0) {
+        // Start burn sound loop if not already playing
+        if (!scene.isBurnSoundPlaying && scene.burnSound) {
+            scene.playSoundSafe(scene.burnSound, { loop: true });
+            scene.isBurnSoundPlaying = true;
+        }
+    } else {
+        // Stop burn sound loop if no monsters are being hit
+        if (scene.isBurnSoundPlaying && scene.burnSound?.isPlaying) {
+            scene.burnSound.stop();
+            scene.isBurnSoundPlaying = false;
+        }
+    }
 }
 
 /**
@@ -347,8 +373,6 @@ function handleFlamethrowerDamage(scene, currentTime) {
  */
 export function onFlamethrowerHitMonster(scene, monster) {
     if (!scene.isSpriteValid(monster)) return;
-
-    scene.playSoundSafe(scene.burnSound);
 
     // Calculate damage with distance-based variation (similar to other weapons)
     const baseDamage = scene.flamethrowerDamage;
@@ -402,6 +426,12 @@ export function cleanupFlamethrower(scene) {
     ) {
         scene.flamethrowerSound.stop();
         scene.isFlamethrowerSoundPlaying = false;
+    }
+
+    // Stop burn sound if playing
+    if (scene.isBurnSoundPlaying && scene.burnSound?.isPlaying) {
+        scene.burnSound.stop();
+        scene.isBurnSoundPlaying = false;
     }
 
     if (scene.fireParticles) {

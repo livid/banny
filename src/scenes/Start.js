@@ -866,7 +866,7 @@ export class Start extends Phaser.Scene {
             volume: 0.3,
             loop: true,
         });
-        this.burnSound = this.sound.add("burn", { volume: 0.6 });
+        this.burnSound = this.sound.add("burn", { volume: 0.8 });
 
         // Add background music - use global registry to prevent overlaps
         let globalBackgroundMusic = this.registry.get("backgroundMusic");
