@@ -1,3 +1,9 @@
+import {
+    shootBoomerang,
+    updateBoomerangs,
+    onBoomerangHitMonster,
+} from "../logic/boomerang.js";
+
 export class Start extends Phaser.Scene {
     constructor() {
         super("Start");
@@ -2278,55 +2284,8 @@ export class Start extends Phaser.Scene {
             console.warn("Error creating bullet:", error);
         }
     }
-
     shootBoomerang() {
-        if (
-            !this.isGameActive() ||
-            this.boomerangCount <= 0 ||
-            !this.isGroupValid(this.boomerangs)
-        )
-            return;
-
-        const currentTime = this.time.now;
-        if (currentTime - this.lastBoomerangTime < this.boomerangCooldown)
-            return;
-
-        this.lastBoomerangTime = currentTime;
-
-        try {
-            for (let i = 0; i < this.boomerangCount; i++) {
-                const boomerang = this.boomerangs.create(
-                    this.player.x,
-                    this.player.y,
-                    "boomerang"
-                );
-                if (!boomerang) continue;
-
-                boomerang.setScale(4);
-
-                const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
-
-                // Store boomerang properties
-                Object.assign(boomerang, {
-                    startX: this.player.x,
-                    startY: this.player.y,
-                    angle: angle,
-                    travelDistance: 360,
-                    distanceTraveled: 0,
-                    returning: false,
-                    speed: 500,
-                    outboundHits: new WeakSet(), // Track monsters hit while going outbound
-                    returnHits: new WeakSet(), // Track monsters hit while returning
-                    damagePerSecond: this.baseBulletDamage * 2, // Damage per second, not per frame
-                });
-
-                const velocity = new Phaser.Math.Vector2();
-                velocity.setToPolar(angle, boomerang.speed);
-                boomerang.setVelocity(velocity.x, velocity.y);
-            }
-        } catch (error) {
-            console.warn("Error creating boomerang:", error);
-        }
+        shootBoomerang(this);
     }
 
     shootBigBoom() {
@@ -2371,52 +2330,7 @@ export class Start extends Phaser.Scene {
     }
 
     updateBoomerangs() {
-        if (
-            !this.isGroupValid(this.boomerangs) ||
-            !this.isSpriteValid(this.player)
-        )
-            return;
-
-        this.safeGroupForEach(this.boomerangs, (boomerang) => {
-            boomerang.rotation += 0.3;
-
-            const currentDistance = Phaser.Math.Distance.Between(
-                boomerang.startX,
-                boomerang.startY,
-                boomerang.x,
-                boomerang.y
-            );
-
-            if (
-                !boomerang.returning &&
-                currentDistance >= boomerang.travelDistance
-            ) {
-                boomerang.returning = true;
-            }
-
-            if (boomerang.returning) {
-                const angle = Phaser.Math.Angle.Between(
-                    boomerang.x,
-                    boomerang.y,
-                    this.player.x,
-                    this.player.y
-                );
-                const velocity = new Phaser.Math.Vector2();
-                velocity.setToPolar(angle, boomerang.speed);
-                boomerang.setVelocity(velocity.x, velocity.y);
-
-                const distanceToPlayer = Phaser.Math.Distance.Between(
-                    boomerang.x,
-                    boomerang.y,
-                    this.player.x,
-                    this.player.y
-                );
-
-                if (distanceToPlayer < 30) {
-                    boomerang.destroy();
-                }
-            }
-        });
+        updateBoomerangs(this);
     }
 
     calculateSpawnDelay() {
@@ -2470,63 +2384,7 @@ export class Start extends Phaser.Scene {
     }
 
     onBoomerangHitMonster(boomerang, monster) {
-        // Initialize damage tracking WeakSets for this boomerang
-        if (!boomerang.outboundHits) {
-            boomerang.outboundHits = new WeakSet();
-        }
-        if (!boomerang.returnHits) {
-            boomerang.returnHits = new WeakSet();
-        }
-
-        // Check if this monster has already been hit in the current phase
-        let shouldDamage = false;
-
-        if (boomerang.returning) {
-            // Boomerang is returning - check if we've already hit this monster on return
-            if (!boomerang.returnHits.has(monster)) {
-                shouldDamage = true;
-                boomerang.returnHits.add(monster);
-            }
-        } else {
-            // Boomerang is going outbound - check if we've already hit this monster outbound
-            if (!boomerang.outboundHits.has(monster)) {
-                shouldDamage = true;
-                boomerang.outboundHits.add(monster);
-            }
-        }
-
-        if (!shouldDamage) {
-            return;
-        }
-
-        this.playSoundSafe(this.hurtSound);
-
-        // Calculate damage based on per-second rate
-        const baseDamage =
-            boomerang.damagePerSecond || this.baseBulletDamage * 2;
-        const damage = this.calculateDistanceBasedDamage(baseDamage, monster);
-
-        // Apply damage to monster
-        monster.currentHealth -= damage;
-
-        // Show damage number
-        this.showDamageNumber(monster.x, monster.y - 20, damage);
-
-        // Create health bar if monster has taken damage and isn't at full health
-        if (monster.currentHealth < monster.maxHealth) {
-            this.createMonsterHealthBar(monster);
-        }
-
-        // Update health bar
-        this.updateMonsterHealthBar(monster);
-
-        // Check if monster is destroyed
-        if (monster.currentHealth <= 0) {
-            this.createExplosion(monster.x, monster.y);
-            this.destroyMonsterHealthBar(monster);
-            monster.destroy();
-            this.updateScore(monster);
-        }
+        onBoomerangHitMonster(boomerang, monster, this);
     }
 
     onBigBoomHitMonster(bigBoom, monster) {
