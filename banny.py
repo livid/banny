@@ -423,6 +423,7 @@ def convert():
         character["boomerang"] = 0
         character["health"] = 100
         character["regen"] = 0
+        character["attackType"] = "bullet"
 
         character["nft_id"] = f"{item['chainId']}-{item['tokenId']}"
         wallet_address = item["wallet"]["address"]
@@ -539,13 +540,22 @@ def convert():
                         )
                     )
 
+                # rule 7: gas can change attack type to flamethrower
+                if value == "gas can":
+                    character["attackType"] = "flamethrower"
+                    click.echo(
+                        crayons.green(
+                            f"+ Changed attack type to {character['attackType']} due to gas can"
+                        )
+                    )
+
         print()  # Add empty line between characters
         characters.append(character)
 
     # Save characters to JSON
-    with open("characters.json", "w") as f:
+    with open("assets/characters/characters.json", "w") as f:
         json.dump(characters, f, indent=2)
-    click.echo("Characters saved to characters.json")
+    click.echo("Characters saved to assets/characters/characters.json")
 
     end_time = time.time()
     execution_time = end_time - start_time
