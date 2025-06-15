@@ -54,22 +54,28 @@ export function updateFlamethrower(scene) {
     if (currentTime - scene.lastShotTime >= scene.fireRate) {
         scene.lastShotTime = currentTime;
 
-        // Find target direction
+        // Find target direction - always use full range
         const nearestMonster = scene.findNearestMonster();
-        let targetX = scene.player.x + scene.flamethrowerRange;
-        let targetY = scene.player.y;
+        let angle;
 
         if (nearestMonster) {
-            targetX = nearestMonster.x;
-            targetY = nearestMonster.y;
+            // Calculate direction to monster, but extend to full range
+            angle = Phaser.Math.Angle.Between(
+                scene.player.x,
+                scene.player.y,
+                nearestMonster.x,
+                nearestMonster.y
+            );
         } else {
             // Use player facing direction as fallback
-            targetX =
-                scene.player.x +
-                (scene.player.flipX
-                    ? -scene.flamethrowerRange
-                    : scene.flamethrowerRange);
+            angle = scene.player.flipX ? Math.PI : 0;
         }
+
+        // Always target at full range in the calculated direction
+        const targetX =
+            scene.player.x + Math.cos(angle) * scene.flamethrowerRange;
+        const targetY =
+            scene.player.y + Math.sin(angle) * scene.flamethrowerRange;
 
         // Create multiple flying particles
         createFlyingParticles(scene, targetX, targetY);
@@ -100,19 +106,14 @@ function createFlyingParticles(scene, targetX, targetY) {
     const particleCount = 25; // More particles for better effect
 
     // Calculate direction to target
-    const angle = Phaser.Math.Angle.Between(
+    const direction = Phaser.Math.Angle.Between(
         player.x,
         player.y,
         targetX,
         targetY
     );
-    const distance = Phaser.Math.Distance.Between(
-        player.x,
-        player.y,
-        targetX,
-        targetY
-    );
-    const maxDistance = Math.min(distance, scene.flamethrowerRange);
+    // Always use full flamethrower range
+    const maxDistance = scene.flamethrowerRange;
 
     for (let i = 0; i < particleCount; i++) {
         // Create particle at player position
@@ -137,7 +138,7 @@ function createFlyingParticles(scene, targetX, targetY) {
         );
 
         // Calculate end position with some spread
-        const spreadAngle = angle + Phaser.Math.FloatBetween(-0.3, 0.3); // 30 degree spread
+        const spreadAngle = direction + Phaser.Math.FloatBetween(-0.3, 0.3); // 30 degree spread
         const endX = player.x + Math.cos(spreadAngle) * clampedDistance;
         const endY = player.y + Math.sin(spreadAngle) * clampedDistance;
 
@@ -251,31 +252,24 @@ function handleFlamethrowerDamage(scene, currentTime) {
         scene.flamethrowerHitMonstersLastClear = currentTime;
     }
 
-    // Find target direction (same logic as particle creation)
+    // Find target direction (same logic as particle creation) - always use full range
     const nearestMonster = scene.findNearestMonster();
-    let targetX = scene.player.x + scene.flamethrowerRange;
-    let targetY = scene.player.y;
+    let flameAngle;
 
     if (nearestMonster) {
-        targetX = nearestMonster.x;
-        targetY = nearestMonster.y;
+        // Calculate direction to monster
+        flameAngle = Phaser.Math.Angle.Between(
+            scene.player.x,
+            scene.player.y,
+            nearestMonster.x,
+            nearestMonster.y
+        );
     } else {
         // Use player facing direction as fallback
-        targetX =
-            scene.player.x +
-            (scene.player.flipX
-                ? -scene.flamethrowerRange
-                : scene.flamethrowerRange);
+        flameAngle = scene.player.flipX ? Math.PI : 0;
     }
 
     // Calculate flamethrower cone direction
-    const flameAngle = Phaser.Math.Angle.Between(
-        scene.player.x,
-        scene.player.y,
-        targetX,
-        targetY
-    );
-
     const coneHalfAngle = 0.6; // ~35 degree cone (70 degrees total) - wider for better coverage
     const maxRange = scene.flamethrowerRange;
 
