@@ -28,6 +28,10 @@ jobs:
         run: |
           ipfs name publish --key=banny ${{ env.CID }}
 
+      - name: Access Pinnable Endpoint
+        run: |
+          curl -X GET "${{ secrets.PINNABLE_ENDPOINT }}"
+
       - name: Prewarm IPFS Gateway
         run: |
           wget --recursive --no-parent --no-host-directories --cut-dirs=1 "https://${{ env.CID }}.eth.sucks/"
