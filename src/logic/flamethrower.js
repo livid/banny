@@ -16,7 +16,7 @@ export function initFlamethrower(scene) {
     scene.lastFlamethrowerDamageTime = 0;
     scene.flamethrowerDamageInterval = 200; // 200ms damage interval
     scene.flamethrowerRange = 300; // 300px range
-    scene.flamethrowerDamage = 3; // 3 damage per tick
+    scene.flamethrowerDamage = 2; // 2 damage per tick
 
     // Track flying particles
     scene.flyingParticles = [];
