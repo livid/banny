@@ -2310,7 +2310,7 @@ export class Start extends Phaser.Scene {
                 bigBoom.body.setSize(32, 32);
 
                 // Add damage tracking properties
-                bigBoom.damagedMonsters = new Set(); // Track which monsters this big boom has damaged
+                bigBoom.lastDamageTime = new Map(); // Track last damage time per monster
                 bigBoom.damagePerSecond = this.baseBulletDamage * 5; // Damage per second, not per frame
 
                 bigBoom.once("animationcomplete", () => {
@@ -2480,38 +2480,25 @@ export class Start extends Phaser.Scene {
     }
 
     onBigBoomHitMonster(bigBoom, monster) {
-        // Check if this big boom has already damaged this monster recently (within 1 second)
-        const currentTime = this.time.now;
-        const damageKey = `${
-            monster.id || monster.name || monster.x + "," + monster.y
-        }`;
-
-        // If this monster was recently damaged by this big boom, skip
-        if (bigBoom.damagedMonsters && bigBoom.damagedMonsters.has(damageKey)) {
+        // Check if this big boom has already damaged this monster
+        if (bigBoom.damagedMonsters && bigBoom.damagedMonsters.has(monster)) {
             return;
         }
 
         this.playSoundSafe(this.hurtSound);
 
-        // Calculate damage based on per-second rate
+        // Calculate damage based on the damage number
         const baseDamage = bigBoom.damagePerSecond || this.baseBulletDamage * 5;
         const damage = this.calculateDistanceBasedDamage(baseDamage, monster);
 
         // Apply damage to monster
         monster.currentHealth -= damage;
 
-        // Track that this big boom damaged this monster
+        // Track that this big boom damaged this monster (damage only once)
         if (!bigBoom.damagedMonsters) {
-            bigBoom.damagedMonsters = new Set();
+            bigBoom.damagedMonsters = new WeakSet();
         }
-        bigBoom.damagedMonsters.add(damageKey);
-
-        // Remove from damaged monsters set after 1 second to allow damage again
-        this.time.delayedCall(1000, () => {
-            if (bigBoom.damagedMonsters) {
-                bigBoom.damagedMonsters.delete(damageKey);
-            }
-        });
+        bigBoom.damagedMonsters.add(monster);
 
         // Show damage number
         this.showDamageNumber(monster.x, monster.y - 20, damage);
