@@ -2310,7 +2310,6 @@ export class Start extends Phaser.Scene {
                 bigBoom.body.setSize(32, 32);
 
                 // Add damage tracking properties
-                bigBoom.lastDamageTime = new Map(); // Track last damage time per monster
                 bigBoom.damagePerSecond = this.baseBulletDamage * 5; // Damage per second, not per frame
 
                 bigBoom.once("animationcomplete", () => {
