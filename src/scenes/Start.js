@@ -8,6 +8,7 @@ export class Start extends Phaser.Scene {
         this.health = 100; // Player health - will be overridden by character data
         this.maxHealth = 100; // Max health - will be overridden by character data
         this.gameOver = false;
+        this.victory = false;
         this.selectedCharacter = null; // Will store selected character data
         this.enterKey = null; // For game over input
         // Experience and level system
@@ -71,6 +72,7 @@ export class Start extends Phaser.Scene {
             this.scene?.isActive() &&
             this.scene?.isVisible() &&
             !this.gameOver &&
+            !this.victory &&
             !this.sceneTransitioning
         );
     }
@@ -222,6 +224,7 @@ export class Start extends Phaser.Scene {
         this.score = 0;
         // Don't reset health here - it will be set properly in initializeGame() based on character data
         this.gameOver = false;
+        this.victory = false;
         this.sceneTransitioning = false; // Reset transition flag
         this.currentSpawnDelay = 500;
         this.lastShotTime = 0;
@@ -1861,6 +1864,45 @@ export class Start extends Phaser.Scene {
         this.gameOverText.setScrollFactor(0);
     }
 
+    triggerVictory() {
+        this.victory = true;
+
+        // Stop session timer
+        if (this.sessionTimer) {
+            this.sessionTimer.destroy();
+            this.sessionTimer = null;
+        }
+
+        // Stop spawning monsters
+        this.spawnTimer?.destroy();
+
+        // Stop player movement
+        if (this.isSpriteValid(this.player)) {
+            this.player.setVelocity(0, 0);
+        }
+
+        // Stop all monsters
+        this.safeGroupForEach(this.monsters, (monster) => {
+            monster.setVelocity(0, 0);
+        });
+
+        // Show victory text
+        this.victoryText = this.add.text(
+            this.cameras.main.centerX,
+            this.cameras.main.centerY,
+            "STAGE CLEARED\nPress ENTER or B/Start button to select character",
+            {
+                fontSize: "42px",
+                fill: "#00ff00",
+                stroke: "#000000",
+                strokeThickness: 3,
+                align: "center",
+            }
+        );
+        this.victoryText.setOrigin(0.5, 0.5);
+        this.victoryText.setScrollFactor(0);
+    }
+
     restartGame() {
         // Reset game state
         this.score = 0;
@@ -1870,6 +1912,7 @@ export class Start extends Phaser.Scene {
             : 100;
         this.health = this.maxHealth;
         this.gameOver = false;
+        this.victory = false;
 
         // Get initial spawn delay from difficulty configuration
         const difficultyData = this.cache.json.get("difficulty-data");
@@ -1910,6 +1953,11 @@ export class Start extends Phaser.Scene {
         // Remove game over text
         if (this.gameOverText) {
             this.gameOverText.destroy();
+        }
+
+        // Remove victory text
+        if (this.victoryText) {
+            this.victoryText.destroy();
         }
 
         // Clean up monster health bars before clearing monsters
@@ -2569,6 +2617,12 @@ export class Start extends Phaser.Scene {
         this.score += 1;
         this.scoreText.setText("Score: " + this.score);
 
+        // Check for victory condition
+        if (this.selectedMap && this.score >= this.selectedMap.victory) {
+            this.triggerVictory();
+            return;
+        }
+
         // Use monster's experience value if available, otherwise fall back to default
         const experienceGain =
             monster && monster.monsterData && monster.monsterData.experience
@@ -2601,6 +2655,48 @@ export class Start extends Phaser.Scene {
     update() {
         // Handle game over state first (before isGameActive check)
         if (this.gameOver) {
+            // Handle keyboard input
+            if (
+                this.enterKey &&
+                Phaser.Input.Keyboard.JustDown(this.enterKey)
+            ) {
+                this.sceneTransitioning = true;
+                this.scene.start("CharacterSelection");
+            }
+
+            // Handle gamepad input (button 0 = B button, button 9 = Start button)
+            if (this.gamepad && this.gamepad.buttons) {
+                const button0 = this.gamepad.buttons[0];
+                const button9 = this.gamepad.buttons[9];
+
+                // Manual justDown detection for button 0 (B button)
+                const button0WasPressed = this.previousButtonStates[0] || false;
+                const button0IsPressed = button0 && button0.pressed;
+                const button0JustPressed =
+                    button0IsPressed && !button0WasPressed;
+
+                // Manual justDown detection for button 9 (Start button)
+                const button9WasPressed = this.previousButtonStates[9] || false;
+                const button9IsPressed = button9 && button9.pressed;
+                const button9JustPressed =
+                    button9IsPressed && !button9WasPressed;
+
+                // Update previous states
+                this.previousButtonStates[0] = button0IsPressed;
+                this.previousButtonStates[9] = button9IsPressed;
+
+                // Check for button presses
+                if (button0JustPressed || button9JustPressed) {
+                    this.sceneTransitioning = true;
+                    this.scene.start("CharacterSelection");
+                    return;
+                }
+            }
+            return;
+        }
+
+        // Handle victory state
+        if (this.victory) {
             // Handle keyboard input
             if (
                 this.enterKey &&
