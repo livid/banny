@@ -34,6 +34,8 @@ export function updateFlamethrower(scene) {
         !scene.selectedCharacter ||
         scene.selectedCharacter.attackType !== "flamethrower"
     ) {
+        // Not using flamethrower, reset state
+        scene.isFlamethrowerActive = false;
         return;
     }
 
@@ -43,10 +45,14 @@ export function updateFlamethrower(scene) {
 
     const currentTime = scene.time.now;
 
+    // Flamethrower is active if character has it equipped and there are particles or we're in firing mode
+    scene.isFlamethrowerActive =
+        scene.flyingParticles.length > 0 ||
+        currentTime - scene.lastShotTime < scene.fireRate;
+
     // Auto-fire - constantly shooting when character has flamethrower
     if (currentTime - scene.lastShotTime >= scene.fireRate) {
         scene.lastShotTime = currentTime;
-        scene.isFlamethrowerActive = true;
 
         // Find target direction
         const nearestMonster = scene.findNearestMonster();
@@ -223,7 +229,8 @@ function updateFlyingParticles(scene, currentTime) {
  * @param {number} currentTime - Current time
  */
 function handleFlamethrowerDamage(scene, currentTime) {
-    if (!scene.isGroupValid(scene.monsters) || !scene.flyingParticles) return;
+    if (!scene.isGroupValid(scene.monsters) || !scene.isFlamethrowerActive)
+        return;
 
     // Check damage interval
     if (
@@ -235,27 +242,82 @@ function handleFlamethrowerDamage(scene, currentTime) {
 
     scene.lastFlamethrowerDamageTime = currentTime;
 
-    // Check for particle-monster collisions
-    scene.flyingParticles.forEach((particleData) => {
-        if (!particleData.sprite || !particleData.sprite.active) return;
+    // Clear hit monsters set periodically to allow re-hitting
+    if (!scene.flamethrowerHitMonstersLastClear) {
+        scene.flamethrowerHitMonstersLastClear = 0;
+    }
+    if (currentTime - scene.flamethrowerHitMonstersLastClear > 500) {
+        scene.flamethrowerHitMonsters.clear();
+        scene.flamethrowerHitMonstersLastClear = currentTime;
+    }
 
-        const particle = particleData.sprite;
+    // Find target direction (same logic as particle creation)
+    const nearestMonster = scene.findNearestMonster();
+    let targetX = scene.player.x + scene.flamethrowerRange;
+    let targetY = scene.player.y;
 
-        scene.monsters.children.entries.forEach((monster) => {
-            if (!scene.isSpriteValid(monster)) return;
+    if (nearestMonster) {
+        targetX = nearestMonster.x;
+        targetY = nearestMonster.y;
+    } else {
+        // Use player facing direction as fallback
+        targetX =
+            scene.player.x +
+            (scene.player.flipX
+                ? -scene.flamethrowerRange
+                : scene.flamethrowerRange);
+    }
 
-            const distance = Phaser.Math.Distance.Between(
-                particle.x,
-                particle.y,
+    // Calculate flamethrower cone direction
+    const flameAngle = Phaser.Math.Angle.Between(
+        scene.player.x,
+        scene.player.y,
+        targetX,
+        targetY
+    );
+
+    const coneHalfAngle = 0.6; // ~35 degree cone (70 degrees total) - wider for better coverage
+    const maxRange = scene.flamethrowerRange;
+
+    // Check all monsters for cone collision
+    const monstersHit = [];
+    scene.monsters.children.entries.forEach((monster) => {
+        if (!scene.isSpriteValid(monster)) return;
+
+        const distanceToMonster = Phaser.Math.Distance.Between(
+            scene.player.x,
+            scene.player.y,
+            monster.x,
+            monster.y
+        );
+
+        // Check if monster is within range
+        if (distanceToMonster <= maxRange) {
+            // Calculate angle from player to monster
+            const angleToMonster = Phaser.Math.Angle.Between(
+                scene.player.x,
+                scene.player.y,
                 monster.x,
                 monster.y
             );
 
-            // If particle is close to monster (within 20px), damage it
-            if (distance <= 20) {
-                onFlamethrowerHitMonster(scene, monster);
+            // Calculate angle difference
+            let angleDiff = Math.abs(flameAngle - angleToMonster);
+            // Normalize angle difference to be between 0 and PI
+            if (angleDiff > Math.PI) {
+                angleDiff = 2 * Math.PI - angleDiff;
             }
-        });
+
+            // Check if monster is within the cone
+            if (angleDiff <= coneHalfAngle) {
+                monstersHit.push(monster);
+            }
+        }
+    });
+
+    // Damage all monsters hit by flamethrower
+    monstersHit.forEach((monster) => {
+        onFlamethrowerHitMonster(scene, monster);
     });
 }
 
