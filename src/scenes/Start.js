@@ -76,6 +76,10 @@ export class Start extends Phaser.Scene {
 
         // Gamepad support
         this.gamepad = null;
+
+        // Damage cooldown system
+        this.lastDamageTime = 0;
+        this.damageCooldown = 1000; // Default attack cooldown in milliseconds
     }
 
     // Centralized safety utility methods
@@ -1762,17 +1766,44 @@ export class Start extends Phaser.Scene {
     onPlayerHitMonster(player, monster) {
         if (this.gameOver) return;
 
+        const currentTime = this.time.now;
+
+        // Initialize monster's last damage time if not set
+        if (!monster.lastPlayerDamageTime) {
+            monster.lastPlayerDamageTime = 0;
+        }
+
+        // Get damage cooldown from monster data, fallback to default
+        const monsterDamageCooldown =
+            monster.monsterData?.damageCooldown || this.damageCooldown;
+
+        // Check if this specific monster's damage cooldown is still active
+        if (
+            currentTime - monster.lastPlayerDamageTime <
+            monsterDamageCooldown
+        ) {
+            return;
+        }
+
+        // Get damage from monster data, fallback to 25 if not defined
+        const monsterDamage = monster.monsterData?.attackDamage || 25;
+
         this.playSoundSafe(this.maleHurtSound);
 
-        this.health = Math.max(0, this.health - 25);
+        this.health = Math.max(0, this.health - monsterDamage);
         this.updateHealthBar();
 
         if (this.characterInfoText) {
             this.characterInfoText.setText(this.getCharacterInfoText());
         }
 
-        this.destroyMonsterHealthBar(monster);
-        monster.destroy();
+        // Update this monster's last damage time to start its cooldown
+        monster.lastPlayerDamageTime = currentTime;
+
+        // Show damage number on player
+        this.showDamageNumber(this.player.x, this.player.y - 30, monsterDamage);
+
+        // Don't destroy monster - it continues to exist and can damage again after cooldown
 
         if (this.health <= 0) {
             this.triggerGameOver();
