@@ -2267,7 +2267,8 @@ export class Start extends Phaser.Scene {
                     distanceTraveled: 0,
                     returning: false,
                     speed: 500,
-                    damagedMonsters: new Set(), // Track which monsters this boomerang has damaged
+                    outboundHits: new WeakSet(), // Track monsters hit while going outbound
+                    returnHits: new WeakSet(), // Track monsters hit while returning
                     damagePerSecond: this.baseBulletDamage * 2, // Damage per second, not per frame
                 });
 
@@ -2421,17 +2422,32 @@ export class Start extends Phaser.Scene {
     }
 
     onBoomerangHitMonster(boomerang, monster) {
-        // Check if this boomerang has already damaged this monster recently (within 1 second)
-        const currentTime = this.time.now;
-        const damageKey = `${
-            monster.id || monster.name || monster.x + "," + monster.y
-        }`;
+        // Initialize damage tracking WeakSets for this boomerang
+        if (!boomerang.outboundHits) {
+            boomerang.outboundHits = new WeakSet();
+        }
+        if (!boomerang.returnHits) {
+            boomerang.returnHits = new WeakSet();
+        }
 
-        // If this monster was recently damaged by this boomerang, skip
-        if (
-            boomerang.damagedMonsters &&
-            boomerang.damagedMonsters.has(damageKey)
-        ) {
+        // Check if this monster has already been hit in the current phase
+        let shouldDamage = false;
+
+        if (boomerang.returning) {
+            // Boomerang is returning - check if we've already hit this monster on return
+            if (!boomerang.returnHits.has(monster)) {
+                shouldDamage = true;
+                boomerang.returnHits.add(monster);
+            }
+        } else {
+            // Boomerang is going outbound - check if we've already hit this monster outbound
+            if (!boomerang.outboundHits.has(monster)) {
+                shouldDamage = true;
+                boomerang.outboundHits.add(monster);
+            }
+        }
+
+        if (!shouldDamage) {
             return;
         }
 
@@ -2444,19 +2460,6 @@ export class Start extends Phaser.Scene {
 
         // Apply damage to monster
         monster.currentHealth -= damage;
-
-        // Track that this boomerang damaged this monster
-        if (!boomerang.damagedMonsters) {
-            boomerang.damagedMonsters = new Set();
-        }
-        boomerang.damagedMonsters.add(damageKey);
-
-        // Remove from damaged monsters set after 1 second to allow damage again
-        this.time.delayedCall(1000, () => {
-            if (boomerang.damagedMonsters) {
-                boomerang.damagedMonsters.delete(damageKey);
-            }
-        });
 
         // Show damage number
         this.showDamageNumber(monster.x, monster.y - 20, damage);
