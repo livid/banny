@@ -3,6 +3,7 @@ import {
     updateBoomerangs,
     onBoomerangHitMonster,
 } from "../logic/boomerang.js";
+import { shootBigBoom, onBigBoomHitMonster } from "../logic/bigBoom.js";
 
 export class Start extends Phaser.Scene {
     constructor() {
@@ -2289,44 +2290,7 @@ export class Start extends Phaser.Scene {
     }
 
     shootBigBoom() {
-        if (
-            !this.isGameActive() ||
-            this.bigBoomCount <= 0 ||
-            !this.isGroupValid(this.bigBooms)
-        )
-            return;
-
-        const currentTime = this.time.now;
-        if (currentTime - this.lastBigBoomTime < this.bigBoomCooldown) return;
-
-        this.lastBigBoomTime = currentTime;
-
-        try {
-            for (let i = 0; i < this.bigBoomCount; i++) {
-                const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
-                const distance = 300;
-
-                const x = this.player.x + Math.cos(angle) * distance;
-                const y = this.player.y + Math.sin(angle) * distance;
-
-                const bigBoom = this.bigBooms.create(x, y, "big-boom");
-                if (!bigBoom) continue;
-
-                bigBoom.setScale(8);
-                bigBoom.setRotation(Phaser.Math.FloatBetween(0, Math.PI * 2));
-                bigBoom.play("big-boom");
-                bigBoom.body.setSize(32, 32);
-
-                // Add damage tracking properties
-                bigBoom.damagePerSecond = this.baseBulletDamage * 5; // Damage per second, not per frame
-
-                bigBoom.once("animationcomplete", () => {
-                    if (bigBoom?.active) bigBoom.destroy();
-                });
-            }
-        } catch (error) {
-            console.warn("Error creating big boom:", error);
-        }
+        shootBigBoom(this);
     }
 
     updateBoomerangs() {
@@ -2388,44 +2352,7 @@ export class Start extends Phaser.Scene {
     }
 
     onBigBoomHitMonster(bigBoom, monster) {
-        // Check if this big boom has already damaged this monster
-        if (bigBoom.damagedMonsters && bigBoom.damagedMonsters.has(monster)) {
-            return;
-        }
-
-        this.playSoundSafe(this.hurtSound);
-
-        // Calculate damage based on the damage number
-        const baseDamage = bigBoom.damagePerSecond || this.baseBulletDamage * 5;
-        const damage = this.calculateDistanceBasedDamage(baseDamage, monster);
-
-        // Apply damage to monster
-        monster.currentHealth -= damage;
-
-        // Track that this big boom damaged this monster (damage only once)
-        if (!bigBoom.damagedMonsters) {
-            bigBoom.damagedMonsters = new WeakSet();
-        }
-        bigBoom.damagedMonsters.add(monster);
-
-        // Show damage number
-        this.showDamageNumber(monster.x, monster.y - 20, damage);
-
-        // Create health bar if monster has taken damage and isn't at full health
-        if (monster.currentHealth < monster.maxHealth) {
-            this.createMonsterHealthBar(monster);
-        }
-
-        // Update health bar
-        this.updateMonsterHealthBar(monster);
-
-        // Check if monster is destroyed
-        if (monster.currentHealth <= 0) {
-            this.createExplosion(monster.x, monster.y);
-            this.destroyMonsterHealthBar(monster);
-            monster.destroy();
-            this.updateScore(monster);
-        }
+        onBigBoomHitMonster(bigBoom, monster, this);
     }
 
     createExplosion(x, y) {
