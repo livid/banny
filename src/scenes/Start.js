@@ -2267,6 +2267,8 @@ export class Start extends Phaser.Scene {
                     distanceTraveled: 0,
                     returning: false,
                     speed: 500,
+                    damagedMonsters: new Set(), // Track which monsters this boomerang has damaged
+                    damagePerSecond: this.baseBulletDamage * 2, // Damage per second, not per frame
                 });
 
                 const velocity = new Phaser.Math.Vector2();
@@ -2306,6 +2308,10 @@ export class Start extends Phaser.Scene {
                 bigBoom.setRotation(Phaser.Math.FloatBetween(0, Math.PI * 2));
                 bigBoom.play("big-boom");
                 bigBoom.body.setSize(32, 32);
+
+                // Add damage tracking properties
+                bigBoom.damagedMonsters = new Set(); // Track which monsters this big boom has damaged
+                bigBoom.damagePerSecond = this.baseBulletDamage * 5; // Damage per second, not per frame
 
                 bigBoom.once("animationcomplete", () => {
                     if (bigBoom?.active) bigBoom.destroy();
@@ -2416,14 +2422,42 @@ export class Start extends Phaser.Scene {
     }
 
     onBoomerangHitMonster(boomerang, monster) {
+        // Check if this boomerang has already damaged this monster recently (within 1 second)
+        const currentTime = this.time.now;
+        const damageKey = `${
+            monster.id || monster.name || monster.x + "," + monster.y
+        }`;
+
+        // If this monster was recently damaged by this boomerang, skip
+        if (
+            boomerang.damagedMonsters &&
+            boomerang.damagedMonsters.has(damageKey)
+        ) {
+            return;
+        }
+
         this.playSoundSafe(this.hurtSound);
 
-        // Boomerangs do more damage than bullets, with distance-based variation
-        const baseDamage = this.baseBulletDamage * 2;
+        // Calculate damage based on per-second rate
+        const baseDamage =
+            boomerang.damagePerSecond || this.baseBulletDamage * 2;
         const damage = this.calculateDistanceBasedDamage(baseDamage, monster);
 
         // Apply damage to monster
         monster.currentHealth -= damage;
+
+        // Track that this boomerang damaged this monster
+        if (!boomerang.damagedMonsters) {
+            boomerang.damagedMonsters = new Set();
+        }
+        boomerang.damagedMonsters.add(damageKey);
+
+        // Remove from damaged monsters set after 1 second to allow damage again
+        this.time.delayedCall(1000, () => {
+            if (boomerang.damagedMonsters) {
+                boomerang.damagedMonsters.delete(damageKey);
+            }
+        });
 
         // Show damage number
         this.showDamageNumber(monster.x, monster.y - 20, damage);
@@ -2446,14 +2480,38 @@ export class Start extends Phaser.Scene {
     }
 
     onBigBoomHitMonster(bigBoom, monster) {
+        // Check if this big boom has already damaged this monster recently (within 1 second)
+        const currentTime = this.time.now;
+        const damageKey = `${
+            monster.id || monster.name || monster.x + "," + monster.y
+        }`;
+
+        // If this monster was recently damaged by this big boom, skip
+        if (bigBoom.damagedMonsters && bigBoom.damagedMonsters.has(damageKey)) {
+            return;
+        }
+
         this.playSoundSafe(this.hurtSound);
 
-        // Big booms do much more damage than bullets, with distance-based variation
-        const baseDamage = this.baseBulletDamage * 5;
+        // Calculate damage based on per-second rate
+        const baseDamage = bigBoom.damagePerSecond || this.baseBulletDamage * 5;
         const damage = this.calculateDistanceBasedDamage(baseDamage, monster);
 
         // Apply damage to monster
         monster.currentHealth -= damage;
+
+        // Track that this big boom damaged this monster
+        if (!bigBoom.damagedMonsters) {
+            bigBoom.damagedMonsters = new Set();
+        }
+        bigBoom.damagedMonsters.add(damageKey);
+
+        // Remove from damaged monsters set after 1 second to allow damage again
+        this.time.delayedCall(1000, () => {
+            if (bigBoom.damagedMonsters) {
+                bigBoom.damagedMonsters.delete(damageKey);
+            }
+        });
 
         // Show damage number
         this.showDamageNumber(monster.x, monster.y - 20, damage);
@@ -2817,7 +2875,10 @@ export class Start extends Phaser.Scene {
             );
 
             // Attack if within 2 times the monster's width and attack is available
-            const attackRange = monster.width * monster.scaleX * monster.monsterData.attackRangeMultiplier || 1.2;
+            const attackRange =
+                monster.width *
+                    monster.scaleX *
+                    monster.monsterData.attackRangeMultiplier || 1.2;
             if (
                 distanceToPlayer <= attackRange &&
                 monster.monsterData &&
