@@ -319,6 +319,7 @@ export class Start extends Phaser.Scene {
         this.load.audio("laser", "assets/sfx/laser-1.wav");
         this.load.audio("hurt", "assets/sfx/hurt-1.wav");
         this.load.audio("male-hurt", "assets/sfx/male-hurt-1.wav");
+        this.load.audio("flamethrower", "assets/sfx/flamethrower.mp3");
 
         // Load background music
         this.load.audio(
@@ -860,6 +861,9 @@ export class Start extends Phaser.Scene {
         this.laserSound = this.sound.add("laser", { volume: 0.05 });
         this.hurtSound = this.sound.add("hurt", { volume: 0.75 });
         this.maleHurtSound = this.sound.add("male-hurt", { volume: 0.5 });
+        this.flamethrowerSound = this.sound.add("flamethrower", {
+            volume: 0.5,
+        });
 
         // Add background music - use global registry to prevent overlaps
         let globalBackgroundMusic = this.registry.get("backgroundMusic");
@@ -872,7 +876,7 @@ export class Start extends Phaser.Scene {
             }
 
             this.backgroundMusic = this.sound.add("background-music", {
-                volume: 0.3,
+                volume: 0.1,
                 loop: true,
             });
             this.backgroundMusic.play();

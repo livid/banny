@@ -79,11 +79,6 @@ export function updateFlamethrower(scene) {
 
         // Create multiple flying particles
         createFlyingParticles(scene, targetX, targetY);
-
-        // Play fire sound occasionally
-        if (Math.random() < 0.3) {
-            scene.playSoundSafe(scene.laserSound);
-        }
     }
 
     // Update all flying particles
@@ -101,6 +96,9 @@ export function updateFlamethrower(scene) {
  */
 function createFlyingParticles(scene, targetX, targetY) {
     if (!scene.fireParticles) return;
+
+    // Play flamethrower sound effect
+    scene.playSoundSafe(scene.flamethrowerSound);
 
     const player = scene.player;
     const particleCount = 25; // More particles for better effect
