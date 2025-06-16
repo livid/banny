@@ -1,7 +1,19 @@
 import Head from 'next/head';
-import Script from 'next/script';
+import { useEffect } from 'react';
 
 export default function Home() {
+    useEffect(() => {
+        const phaser = document.createElement('script');
+        phaser.src = '/phaser.js';
+        phaser.onload = () => {
+            const game = document.createElement('script');
+            game.type = 'module';
+            game.src = '/src/main.js';
+            document.body.appendChild(game);
+        };
+        document.body.appendChild(phaser);
+    }, []);
+
     return (
         <>
             <Head>
@@ -38,9 +50,6 @@ export default function Home() {
                 `}</style>
             </Head>
             <div id="game-container"></div>
-            {/* Load Phaser before our game code so global `Phaser` is defined */}
-            <Script src="/phaser.js" strategy="beforeInteractive" />
-            <Script type="module" src="/src/main.js" strategy="beforeInteractive" />
         </>
     );
 }
