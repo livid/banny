@@ -11,7 +11,8 @@ Experimental roguelike game set in the Bannyverse.
 
 ## Development
 
-This project now runs as a Next.js application. Install dependencies and start the dev server:
+The project uses the official Phaser Next.js template structure.
+Install dependencies and start the development server:
 
 ```bash
 npm install

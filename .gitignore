@@ -3,3 +3,4 @@
 *.swp
 _work
 node_modules
+.next
