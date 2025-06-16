@@ -38,8 +38,9 @@ export default function Home() {
                 `}</style>
             </Head>
             <div id="game-container"></div>
-            <Script src="/phaser.js" />
-            <Script type="module" src="/src/main.js" />
+            {/* Load Phaser before our game code so global `Phaser` is defined */}
+            <Script src="/phaser.js" strategy="beforeInteractive" />
+            <Script type="module" src="/src/main.js" strategy="beforeInteractive" />
         </>
     );
 }
