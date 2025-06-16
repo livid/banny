@@ -290,8 +290,12 @@ export class Start extends Phaser.Scene {
         // Load monsters configuration
         this.load.json("monsters-data", "assets/maps/monsters.json");
 
-        // Load characters data
-        this.load.json("characters-data", "assets/characters/characters.json");
+        // Load characters data with cache buster
+        const cacheBuster = new Date().getTime();
+        this.load.json(
+            "characters-data",
+            `assets/characters/characters.json?v=${cacheBuster}`
+        );
 
         // Load difficulty configuration
         this.load.json("difficulty-data", "assets/meta/difficulty.json");

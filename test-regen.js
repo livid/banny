@@ -1,5 +1,6 @@
 // Simple test to check which characters have regen > 0
-fetch("assets/characters/characters.json")
+const cacheBuster = new Date().getTime();
+fetch(`assets/characters/characters.json?v=${cacheBuster}`)
     .then((response) => response.json())
     .then((characters) => {
         console.log("Characters with regen > 0:");

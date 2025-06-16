@@ -101,8 +101,12 @@ export class CharacterSelection extends Phaser.Scene {
     }
 
     preload() {
-        // Load characters data first
-        this.load.json("characters-data", "assets/characters/characters.json");
+        // Load characters data first with cache buster
+        const cacheBuster = new Date().getTime();
+        this.load.json(
+            "characters-data",
+            `assets/characters/characters.json?v=${cacheBuster}`
+        );
 
         // Load background image
         this.load.image("space-background", "assets/bgs/space.png");
