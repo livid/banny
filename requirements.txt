@@ -1,0 +1,4 @@
+pylibmc
+click
+crayons
+requests
