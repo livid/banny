@@ -6,6 +6,18 @@
     "health": 100,
     "regen": 0,
     "attackType": "bullet",
+    "nft_id": "8453-4000000046",
+    "image": "8453-4000000046-transparent.png",
+    "imageSelection": "8453-4000000046-with-bg.png",
+    "name": "planetable.eth"
+  },
+  {
+    "fireRate": 500,
+    "bigBoom": 0,
+    "boomerang": 0,
+    "health": 100,
+    "regen": 0,
+    "attackType": "bullet",
     "nft_id": "8453-4000000082",
     "image": "8453-4000000082-transparent.png",
     "imageSelection": "8453-4000000082-with-bg.png",
