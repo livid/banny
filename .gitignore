@@ -2,3 +2,4 @@
 .python-version
 *.swp
 _work
+node_modules
