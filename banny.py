@@ -147,7 +147,10 @@ def download_and_embed_images_in_svg(svg_filename, keep_bg=False):
 
                 try:
                     # Download the image
-                    response = requests.get(image_url, timeout=30)
+                    download_url = image_url.replace(
+                        "bannyverse.infura-ipfs.io", "ipfs.banny.eth.sucks"
+                    )
+                    response = requests.get(download_url, timeout=30)
                     response.raise_for_status()
 
                     # Get the content type
