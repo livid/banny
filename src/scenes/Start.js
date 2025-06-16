@@ -1970,6 +1970,9 @@ export class Start extends Phaser.Scene {
         )
             return;
 
+        // Don't allow monster movement in victory or game over states
+        if (this.victory || this.gameOver) return;
+
         this.safeGroupForEach(this.monsters, (monster) => {
             if (!monster.setVelocity || !monster.body?.world) return;
 
