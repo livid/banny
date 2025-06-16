@@ -32,6 +32,10 @@ jobs:
         run: |
           curl -X GET "${{ secrets.PINNABLE_ENDPOINT }}"
 
+      - name: Purge Cache
+        run: |
+          curl https://api.cloudflare.com/client/v4/zones/${{ secrets.CLOUDFLARE_ZONE_ID }}/purge_cache -H 'Content-Type: application/json' -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" -d '{"hosts": ["banny.iweb.eth.sucks"]}'
+
       - name: Prewarm IPFS Gateway
         run: |
           wget --recursive --no-parent --no-host-directories --cut-dirs=1 "https://${{ env.CID }}.eth.sucks/"
